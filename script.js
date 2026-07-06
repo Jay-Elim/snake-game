@@ -11,6 +11,12 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
+// Speed settings
+const BASE_SPEED = 200; // Starting speed (slower)
+const MIN_SPEED = 70; // Fastest speed
+const SPEED_INCREMENT = 3; // How much speed increases per level
+const SPEED_LEVEL_INTERVAL = 3; // Speed up every X foods eaten
+
 // State
 let snake = [];
 let food = {};
@@ -20,13 +26,17 @@ let score = 0;
 let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
 let gameRunning = false;
 let gameInterval = null;
-let speed = 150;
+let currentSpeed = BASE_SPEED;
+let foodsEaten = 0; // Track how many foods eaten for speed progression
 let lastMoveTime = 0;
-const MOVE_COOLDOWN = 100; // Minimum time between moves in ms
+const MOVE_COOLDOWN = 50; // Minimum time between moves in ms
 
 // Input buffer for smoother controls
 let inputBuffer = [];
 let isProcessingInput = false;
+
+// Speed notification tracking
+let lastSpeedLevel = 0;
 
 // Initialize
 highScoreDisplay.textContent = highScore;
@@ -147,6 +157,9 @@ function initGame() {
     inputBuffer = [];
     isProcessingInput = false;
     score = 0;
+    foodsEaten = 0;
+    currentSpeed = BASE_SPEED;
+    lastSpeedLevel = 0;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
@@ -155,7 +168,7 @@ function initGame() {
     if (savePrompt) savePrompt.remove();
     spawnFood();
     clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, speed);
+    gameInterval = setInterval(gameLoop, currentSpeed);
     lastMoveTime = performance.now();
 }
 
@@ -176,7 +189,6 @@ function processInputBuffer() {
     isProcessingInput = true;
     const newDir = inputBuffer.shift();
     
-    // Check if the direction is valid (not opposite of current)
     if ((newDir === 'up' && direction !== 'down') ||
         (newDir === 'down' && direction !== 'up') ||
         (newDir === 'left' && direction !== 'right') ||
@@ -186,28 +198,23 @@ function processInputBuffer() {
     
     isProcessingInput = false;
     
-    // Process next input if any
     if (inputBuffer.length > 0) {
-        setTimeout(processInputBuffer, 50);
+        setTimeout(processInputBuffer, 30);
     }
 }
 
 function gameLoop(timestamp) {
     if (!gameRunning) return;
     
-    // Process input buffer on each frame
     processInputBuffer();
     
-    // Throttle movement to prevent too-fast updates
     if (timestamp - lastMoveTime < MOVE_COOLDOWN) {
         requestAnimationFrame(gameLoop);
         return;
     }
     
-    // Apply direction
     direction = nextDirection;
     
-    // Move snake
     const head = { ...snake[0] };
     switch(direction) {
         case 'up': head.y--; break;
@@ -216,39 +223,105 @@ function gameLoop(timestamp) {
         case 'right': head.x++; break;
     }
     
-    // Check collision with walls
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
         gameOver();
         return;
     }
     
-    // Check collision with self
     if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
         gameOver();
         return;
     }
     
-    // Check if food eaten
     const ateFood = head.x === food.x && head.y === food.y;
     
-    // Move snake
     snake.unshift(head);
     if (!ateFood) {
         snake.pop();
     } else {
         score++;
+        foodsEaten++;
         scoreDisplay.textContent = score;
         spawnFood();
-        if (speed > 80) {
-            speed -= 2;
-            clearInterval(gameInterval);
-            gameInterval = setInterval(gameLoop, speed);
+        
+        // --- PROGRESSIVE SPEED INCREASE WITH NOTIFICATION ---
+        if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
+            const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
+            if (newSpeed !== currentSpeed) {
+                currentSpeed = newSpeed;
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, currentSpeed);
+                
+                // Show speed notification with level
+                const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
+                showSpeedNotification(speedLevel);
+            }
         }
     }
     
     lastMoveTime = timestamp;
     drawCanvas();
     requestAnimationFrame(gameLoop);
+}
+
+// --- SPEED NOTIFICATION ---
+function showSpeedNotification(level) {
+    // Remove any existing notification
+    const existing = document.querySelector('.speed-notification');
+    if (existing) existing.remove();
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = 'speed-notification';
+    
+    // Emoji based on level
+    let emoji = '🐍';
+    let color = '#10b981';
+    let label = 'Level Up!';
+    
+    if (level <= 2) {
+        emoji = '🐢';
+        color = '#34d399';
+        label = 'Getting Started';
+    } else if (level <= 4) {
+        emoji = '🐍';
+        color = '#10b981';
+        label = 'Speeding Up';
+    } else if (level <= 6) {
+        emoji = '⚡';
+        color = '#fbbf24';
+        label = 'Fast!';
+    } else if (level <= 8) {
+        emoji = '🔥';
+        color = '#f472b6';
+        label = 'On Fire!';
+    } else {
+        emoji = '💨';
+        color = '#ef4444';
+        label = 'Light Speed!';
+    }
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <div class="notification-emoji">${emoji}</div>
+            <div class="notification-label">${label}</div>
+            <div class="notification-level">Level ${level}</div>
+            <div class="notification-speed">⚡ ${Math.round(1000 / currentSpeed)} moves/sec</div>
+        </div>
+    `;
+    
+    // Style the notification with the appropriate color
+    notification.style.setProperty('--notification-color', color);
+    
+    document.body.appendChild(notification);
+    
+    // Remove after animation
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => {
+            if (notification.parentNode) notification.remove();
+        }, 400);
+    }, 1200);
 }
 
 function gameOver() {
@@ -324,7 +397,6 @@ function showSaveScorePrompt(score) {
 function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Draw grid (subtle)
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= GRID_SIZE; i++) {
@@ -338,7 +410,6 @@ function drawCanvas() {
         ctx.stroke();
     }
     
-    // Draw snake
     snake.forEach((segment, index) => {
         const x = segment.x * CELL_SIZE;
         const y = segment.y * CELL_SIZE;
@@ -355,7 +426,6 @@ function drawCanvas() {
     });
     ctx.shadowBlur = 0;
     
-    // Draw food
     const fx = food.x * CELL_SIZE;
     const fy = food.y * CELL_SIZE;
     ctx.fillStyle = '#f472b6';
@@ -375,11 +445,10 @@ function drawCanvas() {
     ctx.shadowBlur = 0;
 }
 
-// --- IMPROVED CONTROLS ---
+// --- CONTROLS ---
 function changeDirection(newDir) {
     if (!gameRunning) return;
     
-    // Prevent opposite direction (can't reverse)
     if ((newDir === 'up' && direction === 'down') ||
         (newDir === 'down' && direction === 'up') ||
         (newDir === 'left' && direction === 'right') ||
@@ -387,24 +456,16 @@ function changeDirection(newDir) {
         return;
     }
     
-    // Add to buffer
     inputBuffer.push(newDir);
-    
-    // Limit buffer size
     if (inputBuffer.length > 3) {
         inputBuffer = inputBuffer.slice(-3);
     }
 }
 
-// --- BUTTON HIGHLIGHTING ---
 function highlightButton(buttonId) {
     const btn = document.getElementById(buttonId);
     if (!btn) return;
-    
-    // Add highlight class
     btn.classList.add('btn-pressed');
-    
-    // Remove highlight after a short delay
     setTimeout(() => {
         btn.classList.remove('btn-pressed');
     }, 150);
@@ -440,16 +501,14 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- Touch Swipe (on canvas) ---
+// --- Touch Swipe ---
 let touchStartX = 0;
 let touchStartY = 0;
-let touchStartTime = 0;
 
 canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
-    touchStartTime = Date.now();
     e.preventDefault();
 }, { passive: false });
 
@@ -463,13 +522,9 @@ canvas.addEventListener('touchend', (e) => {
     const touchEnd = e.changedTouches[0];
     const dx = touchEnd.clientX - touchStartX;
     const dy = touchEnd.clientY - touchStartY;
-    const dt = Date.now() - touchStartTime;
-    
-    // Minimum swipe distance (prevents accidental swipes)
     const minSwipeDistance = 20;
     
     if (Math.abs(dx) < minSwipeDistance && Math.abs(dy) < minSwipeDistance) {
-        // Too short - treat as tap (maybe for mobile accessibility)
         touchStartX = 0;
         touchStartY = 0;
         return;
@@ -487,26 +542,23 @@ canvas.addEventListener('touchend', (e) => {
     touchStartY = 0;
 }, { passive: false });
 
-// --- Button Controls with Highlighting ---
+// --- Button Controls ---
 function setupButton(id, direction) {
     const btn = document.getElementById(id);
     if (!btn) return;
     
-    // Touch events for mobile (faster response)
     btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         highlightButton(id);
         changeDirection(direction);
     }, { passive: false });
     
-    // Mouse events for desktop
     btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         highlightButton(id);
         changeDirection(direction);
     });
     
-    // Prevent context menu on long press
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
@@ -561,7 +613,7 @@ document.getElementById('shareScoreBtn').addEventListener('click', async () => {
 document.getElementById('shareLeaderboardBtn').addEventListener('click', shareLeaderboard);
 document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
 
-// --- Polyfill for roundRect ---
+// --- Polyfill ---
 if (!CanvasRenderingContext2D.prototype.roundRect) {
     CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
         if (r > w/2) r = w/2;
@@ -580,7 +632,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     };
 }
 
-// --- PWA: Install Prompt ---
+// --- PWA ---
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();

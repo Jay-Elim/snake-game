@@ -318,6 +318,113 @@
             color: #10b981 !important;
         }
 
+        /* ===== SPEED NOTIFICATION ===== */
+        .speed-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+            animation: speedPop 1s ease-out forwards;
+        }
+
+        .speed-notification .notification-content {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 2px solid var(--notification-color, #10b981);
+            border-radius: 24px;
+            padding: 24px 40px;
+            text-align: center;
+            min-width: 200px;
+            box-shadow: 0 0 60px rgba(16, 185, 129, 0.2), 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .speed-notification .notification-emoji {
+            font-size: 48px;
+            margin-bottom: 4px;
+        }
+
+        .speed-notification .notification-label {
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--notification-color, #10b981);
+            letter-spacing: 0.5px;
+        }
+
+        .speed-notification .notification-level {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .speed-notification .notification-speed {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        /* Notification animations */
+        @keyframes speedPop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            40% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            80% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -60%) scale(1);
+            }
+        }
+
+        .speed-notification.fade-out {
+            animation: speedFadeOut 0.4s ease-out forwards;
+        }
+
+        @keyframes speedFadeOut {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -40%) scale(0.95);
+            }
+        }
+
+        /* Responsive notification */
+        @media (max-width: 480px) {
+            .speed-notification .notification-content {
+                padding: 18px 28px;
+                min-width: 160px;
+            }
+            
+            .speed-notification .notification-emoji {
+                font-size: 36px;
+            }
+            
+            .speed-notification .notification-label {
+                font-size: 17px;
+            }
+            
+            .speed-notification .notification-level {
+                font-size: 12px;
+            }
+        }
+
         /* ===== ANIMATIONS ===== */
         @keyframes slideIn {
             from {
