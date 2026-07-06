@@ -8,9 +8,10 @@
     <!-- Open Graph Meta Tags for X/Twitter -->
     <meta property="og:title" content="Snake Game - Classic Mobile Fun" />
     <meta property="og:description" content="Swipe to guide the snake. Eat food, grow longer, don't crash! 🐍" />
-    <meta property="og:image" content="https://your-link.com/snake-preview.png" />
-    <meta property="og:url" content="https://your-link.com/snake-game" />
+    <meta property="og:image" content="https://jay-elim.github.io/snake-game/snake-preview.png" />
+    <meta property="og:url" content="https://jay-elim.github.io/snake-game/" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@YourXHandle" />
     
     <!-- Theme Color for Mobile -->
     <meta name="theme-color" content="#0a0a0a" />
@@ -19,51 +20,239 @@
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json" />
+    
     <style>
-        /* Custom styles for the game board */
-        canvas {
-            touch-action: none;
-            background: #1a1a2e;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        /* ===== ROOT VARIABLES ===== */
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: rgba(255,255,255,0.03);
+            --accent-green: #10b981;
+            --accent-green-light: #34d399;
+            --accent-pink: #f472b6;
+            --accent-blue: #3b82f6;
+            --text-white: #ffffff;
+            --text-gray: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(255,255,255,0.06);
+            --shadow-color: rgba(0,0,0,0.4);
         }
-        /* Control button styles */
-        .control-btn {
-            width: 70px;
-            height: 70px;
+
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-primary);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-white);
+        }
+
+        /* ===== CANVAS ===== */
+        #gameCanvas {
+            touch-action: none;
+            background: var(--bg-secondary);
             border-radius: 20px;
-            border: 2px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.05);
+            box-shadow: 0 8px 48px var(--shadow-color);
+            border: 2px solid rgba(255,255,255,0.05);
+            width: 100%;
+            aspect-ratio: 1/1;
+            display: block;
+        }
+
+        /* ===== CONTROL BUTTONS ===== */
+        .control-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
             color: white;
-            font-size: 28px;
-            backdrop-filter: blur(10px);
-            transition: all 0.15s ease;
+            font-size: 30px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             touch-action: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
         .control-btn:active {
-            transform: scale(0.92);
-            background: rgba(255,255,255,0.15);
-            border-color: rgba(255,255,255,0.3);
-        }
-        .control-btn.glow {
+            transform: scale(0.88);
             background: rgba(16,185,129,0.2);
-            border-color: #10b981;
+            border-color: var(--accent-green);
+            box-shadow: 0 0 30px rgba(16,185,129,0.15);
         }
-        /* Score display */
+
+        .control-btn.glow {
+            background: rgba(16,185,129,0.1);
+            border-color: rgba(16,185,129,0.2);
+        }
+
+        /* ===== SCORE DISPLAY ===== */
         .score-value {
             font-feature-settings: "tnum";
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 28px;
+            font-weight: 700;
         }
-        /* Mobile touch safe area */
-        @supports (padding: max(0px)) {
-            .safe-bottom {
-                padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+
+        /* ===== OVERLAYS ===== */
+        #gameOverOverlay, #startOverlay {
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 20px;
+        }
+
+        #gameOverOverlay.hidden, #startOverlay.hidden {
+            display: none;
+        }
+
+        /* ===== LEADERBOARD ===== */
+        #leaderboardSection {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            margin-top: 24px;
+        }
+
+        #leaderboardList {
+            max-height: 280px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.08) transparent;
+        }
+
+        #leaderboardList::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #leaderboardList::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #leaderboardList::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.12);
+            border-radius: 4px;
+        }
+
+        #leaderboardList > div {
+            animation: slideIn 0.3s ease-out;
+            border-radius: 12px;
+            padding: 10px 14px;
+            transition: all 0.2s ease;
+        }
+
+        #leaderboardList > div:hover {
+            background: rgba(255,255,255,0.06);
+        }
+
+        /* ===== SAVE PROMPT ===== */
+        .save-prompt {
+            animation: slideIn 0.3s ease-out;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 12px;
+            width: 100%;
+            max-width: 280px;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 12px 32px;
+            border-radius: 16px;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(16,185,129,0.4);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            .control-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+            
+            #leaderboardList > div {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            
+            .score-value {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .control-btn {
+                width: 52px;
+                height: 52px;
+                font-size: 20px;
+                border-radius: 18px;
             }
         }
     </style>
 </head>
-<body class="bg-[#0a0a0a] min-h-screen flex items-center justify-center font-sans">
+<body>
     <div class="w-full max-w-[420px] p-4 mx-auto">
         
         <!-- Header -->
@@ -73,23 +262,24 @@
                 <p class="text-sm text-gray-400">Swipe or use buttons</p>
             </div>
             <div class="text-right">
-                <div class="text-3xl font-bold text-emerald-400 score-value" id="scoreDisplay">0</div>
+                <div class="score-value" id="scoreDisplay">0</div>
                 <div class="text-xs text-gray-500">High: <span id="highScoreDisplay" class="text-yellow-400">0</span></div>
             </div>
         </div>
 
         <!-- Game Canvas -->
         <div class="relative mb-4">
-            <canvas id="gameCanvas" width="400" height="400" class="w-full aspect-square"></canvas>
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
             
             <!-- Game Over Overlay -->
             <div id="gameOverOverlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center hidden">
                 <div class="text-6xl mb-2">💀</div>
                 <h2 class="text-2xl font-bold text-white mb-1">Game Over</h2>
                 <p class="text-gray-400 text-sm mb-4">Score: <span id="finalScore" class="text-emerald-400 font-bold">0</span></p>
-                <button id="restartBtn" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all active:scale-95 text-lg shadow-lg shadow-emerald-500/30">
+                <button id="restartBtn" class="btn-primary">
                     Play Again
                 </button>
+                <!-- Save Score Prompt will be inserted here -->
             </div>
             
             <!-- Start Overlay -->
@@ -97,7 +287,7 @@
                 <div class="text-6xl mb-3">🐍</div>
                 <h2 class="text-2xl font-bold text-white mb-2">Ready to Play?</h2>
                 <p class="text-gray-400 text-sm mb-4 text-center px-8">Swipe or tap the buttons to guide the snake</p>
-                <button id="startBtn" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all active:scale-95 text-lg shadow-lg shadow-emerald-500/30">
+                <button id="startBtn" class="btn-primary">
                     Start Game
                 </button>
             </div>
@@ -114,15 +304,40 @@
             <button id="rightBtn" class="control-btn flex items-center justify-center">→</button>
         </div>
 
-        <!-- Share Button -->
-        <div class="flex justify-center gap-3 mt-4">
-            <button id="shareBtn" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-sm font-medium transition-all active:scale-95 border border-white/10 flex items-center gap-2">
+        <!-- Share & Leaderboard Buttons -->
+        <div class="flex flex-wrap justify-center gap-3 mt-4">
+            <button id="shareBtn" class="share-btn">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
                 Share
             </button>
-            <button id="shareScoreBtn" class="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl text-sm font-medium transition-all active:scale-95 border border-emerald-500/20 flex items-center gap-2">
+            <button id="shareScoreBtn" class="share-btn share-btn-green">
                 🏆 Share Score
             </button>
+            <button id="shareLeaderboardBtn" class="share-btn share-btn-blue">
+                📤 Share Leaderboard
+            </button>
+        </div>
+
+        <!-- Leaderboard Section -->
+        <div id="leaderboardSection">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    🏆 Leaderboard
+                </h2>
+                <button id="clearScoresBtn" class="text-xs text-gray-500 hover:text-red-400 transition-colors">
+                    Clear All
+                </button>
+            </div>
+            
+            <div id="leaderboardList" class="space-y-2">
+                <!-- Rows will be added by JavaScript -->
+                <div class="text-center text-gray-500 py-2 text-sm">No scores yet. Be the first! 🐍</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-6 text-xs text-gray-600">
+            Built with ❤️ • Play on mobile • Save your score
         </div>
     </div>
 

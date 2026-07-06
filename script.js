@@ -25,6 +25,113 @@ let speed = 150;
 // Initialize
 highScoreDisplay.textContent = highScore;
 
+// --- LEADERBOARD FUNCTIONS ---
+const LEADERBOARD_KEY = 'snake_leaderboard';
+const MAX_LEADERBOARD_ENTRIES = 10;
+
+function getLeaderboard() {
+    try {
+        const data = localStorage.getItem(LEADERBOARD_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveToLeaderboard(name, score) {
+    const leaderboard = getLeaderboard();
+    
+    // Add new entry
+    leaderboard.push({
+        name: name || 'Anonymous',
+        score: score,
+        date: new Date().toLocaleDateString()
+    });
+    
+    // Sort by score (highest first)
+    leaderboard.sort((a, b) => b.score - a.score);
+    
+    // Keep only top 10
+    if (leaderboard.length > MAX_LEADERBOARD_ENTRIES) {
+        leaderboard.length = MAX_LEADERBOARD_ENTRIES;
+    }
+    
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+    displayLeaderboard();
+}
+
+function displayLeaderboard() {
+    const leaderboard = getLeaderboard();
+    const list = document.getElementById('leaderboardList');
+    
+    if (leaderboard.length === 0) {
+        list.innerHTML = '<div class="text-center text-gray-500 py-2 text-sm">No scores yet. Be the first! 🐍</div>';
+        return;
+    }
+    
+    // Medal emojis for top 3
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    list.innerHTML = leaderboard.map((entry, index) => {
+        const medal = index < 3 ? medals[index] : `#${index + 1}`;
+        const isCurrentUser = entry.name === 'You';
+        return `
+            <div class="flex items-center justify-between p-2 rounded-lg ${isCurrentUser ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-white/5'} transition-colors hover:bg-white/10">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold ${index < 3 ? 'text-yellow-400' : 'text-gray-400'} w-8 text-center">
+                        ${medal}
+                    </span>
+                    <span class="text-sm font-medium text-white ${isCurrentUser ? 'text-emerald-400' : ''}">
+                        ${entry.name}
+                        ${isCurrentUser ? '👈' : ''}
+                    </span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-emerald-400">${entry.score}</span>
+                    <span class="text-xs text-gray-500">${entry.date}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function clearLeaderboard() {
+    if (confirm('Are you sure you want to clear all scores?')) {
+        localStorage.removeItem(LEADERBOARD_KEY);
+        displayLeaderboard();
+        // Update high score display
+        highScore = 0;
+        localStorage.setItem('snakeHighScore', '0');
+        highScoreDisplay.textContent = '0';
+    }
+}
+
+function shareLeaderboard() {
+    const leaderboard = getLeaderboard();
+    if (leaderboard.length === 0) {
+        alert('No scores to share yet!');
+        return;
+    }
+    
+    let message = '🏆 Snake Game Leaderboard 🏆\n\n';
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    leaderboard.forEach((entry, index) => {
+        const medal = index < 3 ? medals[index] : `${index + 1}.`;
+        message += `${medal} ${entry.name}: ${entry.score} points\n`;
+    });
+    
+    message += `\nPlay and beat them: ${window.location.href}`;
+    
+    if (navigator.share) {
+        navigator.share({ text: message });
+    } else {
+        navigator.clipboard.writeText(message).then(() => {
+            alert('📋 Leaderboard copied! Share it with your friends!');
+        });
+    }
+}
+
 // --- Game Functions ---
 function initGame() {
     const startX = Math.floor(GRID_SIZE / 2);
@@ -41,6 +148,9 @@ function initGame() {
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
     startOverlay.classList.add('hidden');
+    // Remove any save prompt if exists
+    const savePrompt = document.querySelector('.save-prompt');
+    if (savePrompt) savePrompt.remove();
     spawnFood();
     clearInterval(gameInterval);
     gameInterval = setInterval(gameLoop, speed);
@@ -114,13 +224,78 @@ function gameLoop() {
 function gameOver() {
     gameRunning = false;
     clearInterval(gameInterval);
+    
+    // Update high score
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('snakeHighScore', highScore);
         highScoreDisplay.textContent = highScore;
     }
+    
     finalScore.textContent = score;
     gameOverOverlay.classList.remove('hidden');
+    
+    // Show save to leaderboard prompt
+    showSaveScorePrompt(score);
+}
+
+function showSaveScorePrompt(score) {
+    // Remove existing prompt if any
+    const existingPrompt = document.querySelector('.save-prompt');
+    if (existingPrompt) existingPrompt.remove();
+    
+    const promptHTML = `
+        <div class="save-prompt mt-3 p-3 bg-white/5 rounded-xl border border-white/10 w-full max-w-[280px]">
+            <p class="text-sm text-gray-300 mb-2 text-center">Save your score to the leaderboard!</p>
+            <div class="flex flex-col gap-2">
+                <input id="playerNameInput" type="text" 
+                    placeholder="Your name" maxlength="20"
+                    class="w-full px-3 py-2 bg-white/10 rounded-lg text-white text-sm placeholder-gray-500 border border-white/10 focus:border-emerald-500 outline-none"
+                    value="Player">
+                <div class="flex gap-2">
+                    <button id="saveScoreBtn" 
+                        class="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-sm transition-all">
+                        Save 🏆
+                    </button>
+                    <button id="skipSaveBtn" 
+                        class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-bold rounded-lg text-sm transition-all">
+                        Skip
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Insert after restart button
+    const restartBtn = document.getElementById('restartBtn');
+    restartBtn.insertAdjacentHTML('afterend', promptHTML);
+    
+    // Event listeners
+    document.getElementById('saveScoreBtn')?.addEventListener('click', () => {
+        const name = document.getElementById('playerNameInput').value.trim() || 'Anonymous';
+        saveToLeaderboard(name, score);
+        displayLeaderboard();
+        // Remove the prompt
+        const prompt = document.querySelector('.save-prompt');
+        if (prompt) prompt.remove();
+        // Show updated leaderboard
+        const leaderboardSection = document.getElementById('leaderboardSection');
+        if (leaderboardSection) {
+            leaderboardSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    
+    document.getElementById('skipSaveBtn')?.addEventListener('click', () => {
+        const prompt = document.querySelector('.save-prompt');
+        if (prompt) prompt.remove();
+    });
+    
+    // Enter key support
+    document.getElementById('playerNameInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('saveScoreBtn')?.click();
+        }
+    });
 }
 
 function drawCanvas() {
@@ -252,13 +427,14 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     } else {
         // Fallback: copy link
         navigator.clipboard?.writeText(window.location.href).then(() => {
-            alert('Link copied to clipboard!');
+            alert('📋 Link copied to clipboard!');
         });
     }
 });
 
 document.getElementById('shareScoreBtn').addEventListener('click', async () => {
-    const message = `🐍 I scored ${score} points on Snake! Can you beat me? 🎮\nPlay here: ${window.location.href}`;
+    const scoreText = localStorage.getItem('snakeHighScore') || '0';
+    const message = `🐍 I scored ${scoreText} points on Snake Game! Can you beat me? 🎮\nPlay here: ${window.location.href}`;
     
     if (navigator.share) {
         try {
@@ -271,10 +447,16 @@ document.getElementById('shareScoreBtn').addEventListener('click', async () => {
         }
     } else {
         navigator.clipboard?.writeText(message).then(() => {
-            alert('Score copied to clipboard! Share it on X! 🎉');
+            alert('📋 Score copied! Share it on X! 🎉');
         });
     }
 });
+
+// Share Leaderboard button
+document.getElementById('shareLeaderboardBtn').addEventListener('click', shareLeaderboard);
+
+// Clear leaderboard
+document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
 
 // --- Polyfill for roundRect if not supported ---
 if (!CanvasRenderingContext2D.prototype.roundRect) {
@@ -303,8 +485,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // You could show a custom install button here
 });
 
+// --- INITIALIZE LEADERBOARD ---
+displayLeaderboard();
+
 // --- Preload drawing ---
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
 console.log('High Score:', highScore);
+console.log('Leaderboard:', getLeaderboard());
