@@ -11,11 +11,11 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS - SLOWER START =====
-const BASE_SPEED = 250; // Starting speed (slower - was 200)
-const MIN_SPEED = 80; // Fastest speed (was 70)
-const SPEED_INCREMENT = 4; // Speed increase per level (was 3)
-const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten (was 3)
+// ===== SPEED SETTINGS - EXTREMELY SLOW START =====
+const BASE_SPEED = 600; // Starting speed (very slow - was 350)
+const MIN_SPEED = 100; // Fastest speed (was 90)
+const SPEED_INCREMENT = 8; // Speed increase per level (was 5)
+const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten (was 6)
 
 // State
 let snake = [];
@@ -170,6 +170,8 @@ function initGame() {
     clearInterval(gameInterval);
     gameInterval = setInterval(gameLoop, currentSpeed);
     lastMoveTime = performance.now();
+    
+    console.log(`🐢 Snake speed: ${currentSpeed}ms`);
 }
 
 function spawnFood() {
@@ -254,6 +256,7 @@ function gameLoop(timestamp) {
                 
                 const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
                 showSpeedNotification(speedLevel);
+                console.log(`⚡ Speed increased to: ${currentSpeed}ms`);
             }
         }
     }
@@ -637,5 +640,6 @@ displayLeaderboard();
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
+console.log('🐢 BASE_SPEED:', BASE_SPEED);
 console.log('High Score:', highScore);
 console.log('Leaderboard:', getLeaderboard());
