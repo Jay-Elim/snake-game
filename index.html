@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>🐍 Snake Game</title>
+    
+    <!-- Open Graph Meta Tags for X/Twitter -->
+    <meta property="og:title" content="Snake Game - Classic Mobile Fun" />
+    <meta property="og:description" content="Swipe to guide the snake. Eat food, grow longer, don't crash! 🐍" />
+    <meta property="og:image" content="https://your-link.com/snake-preview.png" />
+    <meta property="og:url" content="https://your-link.com/snake-game" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Theme Color for Mobile -->
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json" />
+    <style>
+        /* Custom styles for the game board */
+        canvas {
+            touch-action: none;
+            background: #1a1a2e;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        /* Control button styles */
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            font-size: 28px;
+            backdrop-filter: blur(10px);
+            transition: all 0.15s ease;
+            touch-action: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .control-btn:active {
+            transform: scale(0.92);
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .control-btn.glow {
+            background: rgba(16,185,129,0.2);
+            border-color: #10b981;
+        }
+        /* Score display */
+        .score-value {
+            font-feature-settings: "tnum";
+        }
+        /* Mobile touch safe area */
+        @supports (padding: max(0px)) {
+            .safe-bottom {
+                padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-[#0a0a0a] min-h-screen flex items-center justify-center font-sans">
+    <div class="w-full max-w-[420px] p-4 mx-auto">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">🐍 Snake</h1>
+                <p class="text-sm text-gray-400">Swipe or use buttons</p>
+            </div>
+            <div class="text-right">
+                <div class="text-3xl font-bold text-emerald-400 score-value" id="scoreDisplay">0</div>
+                <div class="text-xs text-gray-500">High: <span id="highScoreDisplay" class="text-yellow-400">0</span></div>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <div class="relative mb-4">
+            <canvas id="gameCanvas" width="400" height="400" class="w-full aspect-square"></canvas>
+            
+            <!-- Game Over Overlay -->
+            <div id="gameOverOverlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center hidden">
+                <div class="text-6xl mb-2">💀</div>
+                <h2 class="text-2xl font-bold text-white mb-1">Game Over</h2>
+                <p class="text-gray-400 text-sm mb-4">Score: <span id="finalScore" class="text-emerald-400 font-bold">0</span></p>
+                <button id="restartBtn" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all active:scale-95 text-lg shadow-lg shadow-emerald-500/30">
+                    Play Again
+                </button>
+            </div>
+            
+            <!-- Start Overlay -->
+            <div id="startOverlay" class="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center">
+                <div class="text-6xl mb-3">🐍</div>
+                <h2 class="text-2xl font-bold text-white mb-2">Ready to Play?</h2>
+                <p class="text-gray-400 text-sm mb-4 text-center px-8">Swipe or tap the buttons to guide the snake</p>
+                <button id="startBtn" class="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-all active:scale-95 text-lg shadow-lg shadow-emerald-500/30">
+                    Start Game
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="grid grid-cols-3 gap-3 max-w-[300px] mx-auto safe-bottom">
+            <div></div>
+            <button id="upBtn" class="control-btn glow flex items-center justify-center">↑</button>
+            <div></div>
+            
+            <button id="leftBtn" class="control-btn flex items-center justify-center">←</button>
+            <button id="downBtn" class="control-btn glow flex items-center justify-center">↓</button>
+            <button id="rightBtn" class="control-btn flex items-center justify-center">→</button>
+        </div>
+
+        <!-- Share Button -->
+        <div class="flex justify-center gap-3 mt-4">
+            <button id="shareBtn" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-sm font-medium transition-all active:scale-95 border border-white/10 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+                Share
+            </button>
+            <button id="shareScoreBtn" class="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl text-sm font-medium transition-all active:scale-95 border border-emerald-500/20 flex items-center gap-2">
+                🏆 Share Score
+            </button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
