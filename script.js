@@ -21,6 +21,12 @@ let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
 let gameRunning = false;
 let gameInterval = null;
 let speed = 150;
+let lastMoveTime = 0;
+const MOVE_COOLDOWN = 100; // Minimum time between moves in ms
+
+// Input buffer for smoother controls
+let inputBuffer = [];
+let isProcessingInput = false;
 
 // Initialize
 highScoreDisplay.textContent = highScore;
@@ -41,17 +47,14 @@ function getLeaderboard() {
 function saveToLeaderboard(name, score) {
     const leaderboard = getLeaderboard();
     
-    // Add new entry
     leaderboard.push({
         name: name || 'Anonymous',
         score: score,
         date: new Date().toLocaleDateString()
     });
     
-    // Sort by score (highest first)
     leaderboard.sort((a, b) => b.score - a.score);
     
-    // Keep only top 10
     if (leaderboard.length > MAX_LEADERBOARD_ENTRIES) {
         leaderboard.length = MAX_LEADERBOARD_ENTRIES;
     }
@@ -69,7 +72,6 @@ function displayLeaderboard() {
         return;
     }
     
-    // Medal emojis for top 3
     const medals = ['🥇', '🥈', '🥉'];
     
     list.innerHTML = leaderboard.map((entry, index) => {
@@ -99,7 +101,6 @@ function clearLeaderboard() {
     if (confirm('Are you sure you want to clear all scores?')) {
         localStorage.removeItem(LEADERBOARD_KEY);
         displayLeaderboard();
-        // Update high score display
         highScore = 0;
         localStorage.setItem('snakeHighScore', '0');
         highScoreDisplay.textContent = '0';
@@ -143,17 +144,19 @@ function initGame() {
     ];
     direction = 'right';
     nextDirection = 'right';
+    inputBuffer = [];
+    isProcessingInput = false;
     score = 0;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
     startOverlay.classList.add('hidden');
-    // Remove any save prompt if exists
     const savePrompt = document.querySelector('.save-prompt');
     if (savePrompt) savePrompt.remove();
     spawnFood();
     clearInterval(gameInterval);
     gameInterval = setInterval(gameLoop, speed);
+    lastMoveTime = performance.now();
 }
 
 function spawnFood() {
@@ -167,16 +170,42 @@ function spawnFood() {
     food = newFood;
 }
 
-function gameLoop() {
+function processInputBuffer() {
+    if (isProcessingInput || inputBuffer.length === 0) return;
+    
+    isProcessingInput = true;
+    const newDir = inputBuffer.shift();
+    
+    // Check if the direction is valid (not opposite of current)
+    if ((newDir === 'up' && direction !== 'down') ||
+        (newDir === 'down' && direction !== 'up') ||
+        (newDir === 'left' && direction !== 'right') ||
+        (newDir === 'right' && direction !== 'left')) {
+        nextDirection = newDir;
+    }
+    
+    isProcessingInput = false;
+    
+    // Process next input if any
+    if (inputBuffer.length > 0) {
+        setTimeout(processInputBuffer, 50);
+    }
+}
+
+function gameLoop(timestamp) {
     if (!gameRunning) return;
     
-    // Apply direction
-    if ((nextDirection === 'up' && direction !== 'down') ||
-        (nextDirection === 'down' && direction !== 'up') ||
-        (nextDirection === 'left' && direction !== 'right') ||
-        (nextDirection === 'right' && direction !== 'left')) {
-        direction = nextDirection;
+    // Process input buffer on each frame
+    processInputBuffer();
+    
+    // Throttle movement to prevent too-fast updates
+    if (timestamp - lastMoveTime < MOVE_COOLDOWN) {
+        requestAnimationFrame(gameLoop);
+        return;
     }
+    
+    // Apply direction
+    direction = nextDirection;
     
     // Move snake
     const head = { ...snake[0] };
@@ -210,7 +239,6 @@ function gameLoop() {
         score++;
         scoreDisplay.textContent = score;
         spawnFood();
-        // Speed up slightly
         if (speed > 80) {
             speed -= 2;
             clearInterval(gameInterval);
@@ -218,14 +246,17 @@ function gameLoop() {
         }
     }
     
+    lastMoveTime = timestamp;
     drawCanvas();
+    requestAnimationFrame(gameLoop);
 }
 
 function gameOver() {
     gameRunning = false;
     clearInterval(gameInterval);
+    inputBuffer = [];
+    isProcessingInput = false;
     
-    // Update high score
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('snakeHighScore', highScore);
@@ -234,13 +265,10 @@ function gameOver() {
     
     finalScore.textContent = score;
     gameOverOverlay.classList.remove('hidden');
-    
-    // Show save to leaderboard prompt
     showSaveScorePrompt(score);
 }
 
 function showSaveScorePrompt(score) {
-    // Remove existing prompt if any
     const existingPrompt = document.querySelector('.save-prompt');
     if (existingPrompt) existingPrompt.remove();
     
@@ -254,11 +282,11 @@ function showSaveScorePrompt(score) {
                     value="Player">
                 <div class="flex gap-2">
                     <button id="saveScoreBtn" 
-                        class="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-sm transition-all">
+                        class="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg text-sm transition-all active:scale-95">
                         Save 🏆
                     </button>
                     <button id="skipSaveBtn" 
-                        class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-bold rounded-lg text-sm transition-all">
+                        class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-bold rounded-lg text-sm transition-all active:scale-95">
                         Skip
                     </button>
                 </div>
@@ -266,19 +294,15 @@ function showSaveScorePrompt(score) {
         </div>
     `;
     
-    // Insert after restart button
     const restartBtn = document.getElementById('restartBtn');
     restartBtn.insertAdjacentHTML('afterend', promptHTML);
     
-    // Event listeners
     document.getElementById('saveScoreBtn')?.addEventListener('click', () => {
         const name = document.getElementById('playerNameInput').value.trim() || 'Anonymous';
         saveToLeaderboard(name, score);
         displayLeaderboard();
-        // Remove the prompt
         const prompt = document.querySelector('.save-prompt');
         if (prompt) prompt.remove();
-        // Show updated leaderboard
         const leaderboardSection = document.getElementById('leaderboardSection');
         if (leaderboardSection) {
             leaderboardSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -290,7 +314,6 @@ function showSaveScorePrompt(score) {
         if (prompt) prompt.remove();
     });
     
-    // Enter key support
     document.getElementById('playerNameInput')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             document.getElementById('saveScoreBtn')?.click();
@@ -326,7 +349,6 @@ function drawCanvas() {
         ctx.shadowColor = index === 0 ? 'rgba(52,211,153,0.5)' : 'rgba(16,185,129,0.3)';
         ctx.shadowBlur = index === 0 ? 12 : 6;
         
-        // Rounded rectangle
         ctx.beginPath();
         ctx.roundRect(x + padding, y + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2, radius);
         ctx.fill();
@@ -343,7 +365,6 @@ function drawCanvas() {
     ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 3, 0, Math.PI * 2);
     ctx.fill();
     
-    // Glow ring
     ctx.shadowBlur = 30;
     ctx.shadowColor = 'rgba(244,114,182,0.2)';
     ctx.strokeStyle = 'rgba(244,114,182,0.3)';
@@ -354,31 +375,81 @@ function drawCanvas() {
     ctx.shadowBlur = 0;
 }
 
-// --- Controls ---
+// --- IMPROVED CONTROLS ---
 function changeDirection(newDir) {
     if (!gameRunning) return;
-    nextDirection = newDir;
+    
+    // Prevent opposite direction (can't reverse)
+    if ((newDir === 'up' && direction === 'down') ||
+        (newDir === 'down' && direction === 'up') ||
+        (newDir === 'left' && direction === 'right') ||
+        (newDir === 'right' && direction === 'left')) {
+        return;
+    }
+    
+    // Add to buffer
+    inputBuffer.push(newDir);
+    
+    // Limit buffer size
+    if (inputBuffer.length > 3) {
+        inputBuffer = inputBuffer.slice(-3);
+    }
 }
 
-// Keyboard
+// --- BUTTON HIGHLIGHTING ---
+function highlightButton(buttonId) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    
+    // Add highlight class
+    btn.classList.add('btn-pressed');
+    
+    // Remove highlight after a short delay
+    setTimeout(() => {
+        btn.classList.remove('btn-pressed');
+    }, 150);
+}
+
+// --- Keyboard Controls ---
 document.addEventListener('keydown', (e) => {
     switch(e.key) {
-        case 'ArrowUp': e.preventDefault(); changeDirection('up'); break;
-        case 'ArrowDown': e.preventDefault(); changeDirection('down'); break;
-        case 'ArrowLeft': e.preventDefault(); changeDirection('left'); break;
-        case 'ArrowRight': e.preventDefault(); changeDirection('right'); break;
-        case ' ': e.preventDefault(); if (!gameRunning) initGame(); break;
+        case 'ArrowUp': 
+            e.preventDefault(); 
+            changeDirection('up');
+            highlightButton('upBtn');
+            break;
+        case 'ArrowDown': 
+            e.preventDefault(); 
+            changeDirection('down');
+            highlightButton('downBtn');
+            break;
+        case 'ArrowLeft': 
+            e.preventDefault(); 
+            changeDirection('left');
+            highlightButton('leftBtn');
+            break;
+        case 'ArrowRight': 
+            e.preventDefault(); 
+            changeDirection('right');
+            highlightButton('rightBtn');
+            break;
+        case ' ': 
+            e.preventDefault(); 
+            if (!gameRunning) initGame(); 
+            break;
     }
 });
 
-// Touch swipe (on canvas)
+// --- Touch Swipe (on canvas) ---
 let touchStartX = 0;
 let touchStartY = 0;
+let touchStartTime = 0;
 
 canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
+    touchStartTime = Date.now();
     e.preventDefault();
 }, { passive: false });
 
@@ -388,27 +459,63 @@ canvas.addEventListener('touchmove', (e) => {
 
 canvas.addEventListener('touchend', (e) => {
     if (touchStartX === 0 && touchStartY === 0) return;
+    
     const touchEnd = e.changedTouches[0];
     const dx = touchEnd.clientX - touchStartX;
     const dy = touchEnd.clientY - touchStartY;
+    const dt = Date.now() - touchStartTime;
+    
+    // Minimum swipe distance (prevents accidental swipes)
+    const minSwipeDistance = 20;
+    
+    if (Math.abs(dx) < minSwipeDistance && Math.abs(dy) < minSwipeDistance) {
+        // Too short - treat as tap (maybe for mobile accessibility)
+        touchStartX = 0;
+        touchStartY = 0;
+        return;
+    }
     
     if (Math.abs(dx) > Math.abs(dy)) {
         changeDirection(dx > 0 ? 'right' : 'left');
+        highlightButton(dx > 0 ? 'rightBtn' : 'leftBtn');
     } else {
         changeDirection(dy > 0 ? 'down' : 'up');
+        highlightButton(dy > 0 ? 'downBtn' : 'upBtn');
     }
     
     touchStartX = 0;
     touchStartY = 0;
 }, { passive: false });
 
-// Button controls
-document.getElementById('upBtn').addEventListener('click', () => changeDirection('up'));
-document.getElementById('downBtn').addEventListener('click', () => changeDirection('down'));
-document.getElementById('leftBtn').addEventListener('click', () => changeDirection('left'));
-document.getElementById('rightBtn').addEventListener('click', () => changeDirection('right'));
+// --- Button Controls with Highlighting ---
+function setupButton(id, direction) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    
+    // Touch events for mobile (faster response)
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        highlightButton(id);
+        changeDirection(direction);
+    }, { passive: false });
+    
+    // Mouse events for desktop
+    btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        highlightButton(id);
+        changeDirection(direction);
+    });
+    
+    // Prevent context menu on long press
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 
-// Start / Restart
+setupButton('upBtn', 'up');
+setupButton('downBtn', 'down');
+setupButton('leftBtn', 'left');
+setupButton('rightBtn', 'right');
+
+// --- Start / Restart ---
 document.getElementById('startBtn').addEventListener('click', initGame);
 document.getElementById('restartBtn').addEventListener('click', initGame);
 
@@ -425,7 +532,6 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
             if (err.name !== 'AbortError') console.error('Share failed:', err);
         }
     } else {
-        // Fallback: copy link
         navigator.clipboard?.writeText(window.location.href).then(() => {
             alert('📋 Link copied to clipboard!');
         });
@@ -434,7 +540,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
 
 document.getElementById('shareScoreBtn').addEventListener('click', async () => {
     const scoreText = localStorage.getItem('snakeHighScore') || '0';
-    const message = `🐍 I scored ${scoreText} points on Snake Game! Can you beat me? 🎮\nPlay here: ${window.location.href}`;
+    const message = `🐍 I scored ${scoreText} points on Snake Game! Can you beat me? 🎮\n\nBuilt by @jayelimpro\nPlay here: ${window.location.href}`;
     
     if (navigator.share) {
         try {
@@ -452,13 +558,10 @@ document.getElementById('shareScoreBtn').addEventListener('click', async () => {
     }
 });
 
-// Share Leaderboard button
 document.getElementById('shareLeaderboardBtn').addEventListener('click', shareLeaderboard);
-
-// Clear leaderboard
 document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
 
-// --- Polyfill for roundRect if not supported ---
+// --- Polyfill for roundRect ---
 if (!CanvasRenderingContext2D.prototype.roundRect) {
     CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
         if (r > w/2) r = w/2;
@@ -482,13 +585,10 @@ let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    // You could show a custom install button here
 });
 
-// --- INITIALIZE LEADERBOARD ---
+// --- INITIALIZE ---
 displayLeaderboard();
-
-// --- Preload drawing ---
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');

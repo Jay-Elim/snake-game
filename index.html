@@ -67,7 +67,7 @@
             display: block;
         }
 
-        /* ===== CONTROL BUTTONS ===== */
+        /* ===== CONTROL BUTTONS - IMPROVED ===== */
         .control-btn {
             width: 72px;
             height: 72px;
@@ -78,8 +78,8 @@
             font-size: 30px;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            touch-action: none;
+            transition: all 0.08s cubic-bezier(0.4, 0, 0.2, 1);
+            touch-action: manipulation;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
@@ -87,18 +87,45 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            will-change: transform;
         }
 
-        .control-btn:active {
-            transform: scale(0.88);
-            background: rgba(16,185,129,0.2);
-            border-color: var(--accent-green);
-            box-shadow: 0 0 30px rgba(16,185,129,0.15);
-        }
-
+        /* Glow base state */
         .control-btn.glow {
-            background: rgba(16,185,129,0.1);
-            border-color: rgba(16,185,129,0.2);
+            background: rgba(16,185,129,0.08);
+            border-color: rgba(16,185,129,0.15);
+        }
+
+        /* === PRESS EFFECT - ACTIVE STATE === */
+        .control-btn:active,
+        .control-btn.btn-pressed {
+            transform: scale(0.85);
+            background: rgba(16,185,129,0.35) !important;
+            border-color: #10b981 !important;
+            box-shadow: 
+                0 0 40px rgba(16,185,129,0.3),
+                inset 0 0 20px rgba(16,185,129,0.1) !important;
+            transition: all 0.05s ease !important;
+        }
+
+        /* Glow pulse when pressed */
+        .control-btn:active::after,
+        .control-btn.btn-pressed::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 28px;
+            background: rgba(16,185,129,0.15);
+            filter: blur(8px);
+            animation: pulseGlow 0.3s ease-out;
+            z-index: -1;
+        }
+
+        /* Hover effect for desktop */
+        .control-btn:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.15);
         }
 
         /* ===== SCORE DISPLAY ===== */
@@ -215,21 +242,26 @@
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .share-btn:hover {
-            background: rgba(255,255,255,0.08);
-            transform: translateY(-1px);
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .share-btn:active {
             transform: scale(0.95);
         }
 
+        .share-btn:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
         .share-btn-green {
             background: rgba(16,185,129,0.12);
             color: var(--accent-green);
             border-color: rgba(16,185,129,0.2);
+        }
+
+        .share-btn-green:active {
+            background: rgba(16,185,129,0.25);
         }
 
         .share-btn-green:hover {
@@ -240,6 +272,10 @@
             background: rgba(59,130,246,0.12);
             color: var(--accent-blue);
             border-color: rgba(59,130,246,0.2);
+        }
+
+        .share-btn-blue:active {
+            background: rgba(59,130,246,0.25);
         }
 
         .share-btn-blue:hover {
@@ -282,13 +318,6 @@
             color: #10b981 !important;
         }
 
-        /* Brand divider */
-        .brand-divider {
-            width: 24px;
-            height: 1px;
-            background: rgba(255,255,255,0.06);
-        }
-
         /* ===== ANIMATIONS ===== */
         @keyframes slideIn {
             from {
@@ -298,6 +327,17 @@
             to {
                 opacity: 1;
                 transform: translateX(0);
+            }
+        }
+
+        @keyframes pulseGlow {
+            0% {
+                opacity: 1;
+                transform: scale(0.8);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.4);
             }
         }
 
@@ -318,6 +358,12 @@
                 width: 60px;
                 height: 60px;
                 font-size: 24px;
+                border-radius: 20px;
+            }
+            
+            .control-btn:active::after,
+            .control-btn.btn-pressed::after {
+                border-radius: 24px;
             }
             
             #leaderboardList > div {
@@ -341,6 +387,11 @@
                 height: 52px;
                 font-size: 20px;
                 border-radius: 18px;
+            }
+            
+            .control-btn:active::after,
+            .control-btn.btn-pressed::after {
+                border-radius: 22px;
             }
         }
     </style>
@@ -389,12 +440,12 @@
         <!-- Mobile Controls -->
         <div class="grid grid-cols-3 gap-3 max-w-[300px] mx-auto safe-bottom">
             <div></div>
-            <button id="upBtn" class="control-btn glow flex items-center justify-center">↑</button>
+            <button id="upBtn" class="control-btn glow flex items-center justify-center" aria-label="Move Up">↑</button>
             <div></div>
             
-            <button id="leftBtn" class="control-btn flex items-center justify-center">←</button>
-            <button id="downBtn" class="control-btn glow flex items-center justify-center">↓</button>
-            <button id="rightBtn" class="control-btn flex items-center justify-center">→</button>
+            <button id="leftBtn" class="control-btn flex items-center justify-center" aria-label="Move Left">←</button>
+            <button id="downBtn" class="control-btn glow flex items-center justify-center" aria-label="Move Down">↓</button>
+            <button id="rightBtn" class="control-btn flex items-center justify-center" aria-label="Move Right">→</button>
         </div>
 
         <!-- Share & Leaderboard Buttons -->
@@ -428,7 +479,7 @@
             </div>
         </div>
 
-        <!-- ===== BRANDING FOOTER (Option 4 - Full Branding Package) ===== -->
+        <!-- ===== BRANDING FOOTER ===== -->
         <div class="mt-6 pt-4 border-t border-white/5">
             <div class="flex flex-col items-center gap-3">
                 <!-- Brand -->
@@ -467,7 +518,7 @@
                         🌐 Portfolio
                     </a>
                     <span class="text-gray-700 text-[10px]">•</span>
-                    <span class="text-[10px] text-gray-600">🐍 v1.0</span>
+                    <span class="text-[10px] text-gray-600">🐍 v1.1</span>
                 </div>
                 
                 <!-- Made with love -->
