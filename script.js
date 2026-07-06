@@ -11,11 +11,11 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// Speed settings
-const BASE_SPEED = 200; // Starting speed (slower)
-const MIN_SPEED = 70; // Fastest speed
-const SPEED_INCREMENT = 3; // How much speed increases per level
-const SPEED_LEVEL_INTERVAL = 3; // Speed up every X foods eaten
+// ===== SPEED SETTINGS - SLOWER START =====
+const BASE_SPEED = 250; // Starting speed (slower - was 200)
+const MIN_SPEED = 80; // Fastest speed (was 70)
+const SPEED_INCREMENT = 4; // Speed increase per level (was 3)
+const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten (was 3)
 
 // State
 let snake = [];
@@ -27,11 +27,11 @@ let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
 let gameRunning = false;
 let gameInterval = null;
 let currentSpeed = BASE_SPEED;
-let foodsEaten = 0; // Track how many foods eaten for speed progression
+let foodsEaten = 0;
 let lastMoveTime = 0;
-const MOVE_COOLDOWN = 50; // Minimum time between moves in ms
+const MOVE_COOLDOWN = 50;
 
-// Input buffer for smoother controls
+// Input buffer
 let inputBuffer = [];
 let isProcessingInput = false;
 
@@ -244,7 +244,7 @@ function gameLoop(timestamp) {
         scoreDisplay.textContent = score;
         spawnFood();
         
-        // --- PROGRESSIVE SPEED INCREASE WITH NOTIFICATION ---
+        // --- PROGRESSIVE SPEED INCREASE ---
         if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
             const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
             if (newSpeed !== currentSpeed) {
@@ -252,7 +252,6 @@ function gameLoop(timestamp) {
                 clearInterval(gameInterval);
                 gameInterval = setInterval(gameLoop, currentSpeed);
                 
-                // Show speed notification with level
                 const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
                 showSpeedNotification(speedLevel);
             }
@@ -266,15 +265,12 @@ function gameLoop(timestamp) {
 
 // --- SPEED NOTIFICATION ---
 function showSpeedNotification(level) {
-    // Remove any existing notification
     const existing = document.querySelector('.speed-notification');
     if (existing) existing.remove();
     
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = 'speed-notification';
     
-    // Emoji based on level
     let emoji = '🐍';
     let color = '#10b981';
     let label = 'Level Up!';
@@ -310,12 +306,9 @@ function showSpeedNotification(level) {
         </div>
     `;
     
-    // Style the notification with the appropriate color
     notification.style.setProperty('--notification-color', color);
-    
     document.body.appendChild(notification);
     
-    // Remove after animation
     setTimeout(() => {
         notification.classList.add('fade-out');
         setTimeout(() => {
