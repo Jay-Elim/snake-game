@@ -11,7 +11,7 @@
     <meta property="og:image" content="https://jay-elim.github.io/snake-game/snake-preview.png" />
     <meta property="og:url" content="https://jay-elim.github.io/snake-game/" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:creator" content="@YourXHandle" />
+    <meta name="twitter:creator" content="@jayelimpro" />
     
     <!-- Theme Color for Mobile -->
     <meta name="theme-color" content="#0a0a0a" />
@@ -201,6 +201,94 @@
             transform: scale(0.95);
         }
 
+        /* ===== SHARE BUTTONS ===== */
+        .share-btn {
+            padding: 10px 18px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-gray);
+            border-radius: 14px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .share-btn:hover {
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-1px);
+        }
+
+        .share-btn:active {
+            transform: scale(0.95);
+        }
+
+        .share-btn-green {
+            background: rgba(16,185,129,0.12);
+            color: var(--accent-green);
+            border-color: rgba(16,185,129,0.2);
+        }
+
+        .share-btn-green:hover {
+            background: rgba(16,185,129,0.2);
+        }
+
+        .share-btn-blue {
+            background: rgba(59,130,246,0.12);
+            color: var(--accent-blue);
+            border-color: rgba(59,130,246,0.2);
+        }
+
+        .share-btn-blue:hover {
+            background: rgba(59,130,246,0.2);
+        }
+
+        /* ===== BRANDING STYLES ===== */
+        .brand-link {
+            position: relative;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .brand-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1.5px;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+
+        .brand-link:hover::after {
+            width: 100%;
+        }
+
+        .brand-link:hover {
+            color: #34d399 !important;
+        }
+
+        .social-icon {
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .social-icon:hover {
+            transform: translateY(-1px);
+            color: #10b981 !important;
+        }
+
+        /* Brand divider */
+        .brand-divider {
+            width: 24px;
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+        }
+
         /* ===== ANIMATIONS ===== */
         @keyframes slideIn {
             from {
@@ -239,6 +327,11 @@
             
             .score-value {
                 font-size: 24px;
+            }
+
+            .share-btn {
+                padding: 8px 14px;
+                font-size: 12px;
             }
         }
 
@@ -335,9 +428,53 @@
             </div>
         </div>
 
-        <!-- Footer -->
-        <div class="text-center mt-6 text-xs text-gray-600">
-            Built with ❤️ • Play on mobile • Save your score
+        <!-- ===== BRANDING FOOTER (Option 4 - Full Branding Package) ===== -->
+        <div class="mt-6 pt-4 border-t border-white/5">
+            <div class="flex flex-col items-center gap-3">
+                <!-- Brand -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-white">🐍 Snake Game</span>
+                    <span class="text-[10px] text-gray-600">•</span>
+                    <span class="text-[10px] text-gray-500">by</span>
+                    <a href="https://twitter.com/jayelimpro" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="brand-link text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                        @jayelimpro
+                    </a>
+                </div>
+                
+                <!-- Social Links -->
+                <div class="flex items-center gap-3">
+                    <a href="https://twitter.com/jayelimpro" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="social-icon text-gray-500 hover:text-emerald-400 transition-colors text-xs">
+                        🐦 X
+                    </a>
+                    <span class="text-gray-700 text-[10px]">•</span>
+                    <a href="https://github.com/Jay-Elim" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="social-icon text-gray-500 hover:text-emerald-400 transition-colors text-xs">
+                        💻 GitHub
+                    </a>
+                    <span class="text-gray-700 text-[10px]">•</span>
+                    <a href="https://jay-elim.github.io/portfolio" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="social-icon text-gray-500 hover:text-emerald-400 transition-colors text-xs">
+                        🌐 Portfolio
+                    </a>
+                    <span class="text-gray-700 text-[10px]">•</span>
+                    <span class="text-[10px] text-gray-600">🐍 v1.0</span>
+                </div>
+                
+                <!-- Made with love -->
+                <p class="text-[10px] text-gray-600">
+                    Made with ❤️ • Built in 4 hours • Open source
+                </p>
+            </div>
         </div>
     </div>
 
