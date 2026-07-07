@@ -405,66 +405,12 @@ function moveSnake() {
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
                 console.log(`⚡ Level ${level}: Speed ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
-                showSpeedNotification();
+                // Level-up notification removed
             }
         }
     }
     
     drawCanvas();
-}
-
-// ===== SPEED NOTIFICATION =====
-function showSpeedNotification() {
-    const existing = document.querySelector('.speed-notification');
-    if (existing) existing.remove();
-    
-    const notification = document.createElement('div');
-    notification.className = 'speed-notification';
-    
-    let emoji = '🐍';
-    let color = '#10b981';
-    let label = 'Level Up!';
-    
-    if (level <= 2) {
-        emoji = '🐢';
-        color = '#34d399';
-        label = 'Getting Started';
-    } else if (level <= 4) {
-        emoji = '🐍';
-        color = '#10b981';
-        label = 'Speeding Up';
-    } else if (level <= 6) {
-        emoji = '⚡';
-        color = '#fbbf24';
-        label = 'Fast!';
-    } else if (level <= 8) {
-        emoji = '🔥';
-        color = '#f472b6';
-        label = 'On Fire!';
-    } else {
-        emoji = '💨';
-        color = '#ef4444';
-        label = 'Light Speed!';
-    }
-    
-    notification.innerHTML = `
-        <div class="notification-content">
-            <div class="notification-emoji">${emoji}</div>
-            <div class="notification-label">${label}</div>
-            <div class="notification-level">Level ${level}</div>
-            <div class="notification-speed">⚡ ${(1000 / currentSpeed).toFixed(1)} moves/sec</div>
-        </div>
-    `;
-    
-    notification.style.setProperty('--notification-color', color);
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.classList.add('fade-out');
-        setTimeout(() => {
-            if (notification.parentNode) notification.remove();
-        }, 400);
-    }, 1200);
 }
 
 function gameOver() {
@@ -805,6 +751,7 @@ console.log('🐍 Snake Game loaded!');
 console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
 console.log('🌟 Big Food: 20% chance, +5 points!');
 console.log('⏸️ Press SPACE or tap the pause button to pause/resume');
+console.log('🎯 Level-up notifications removed for cleaner gameplay');
 
 window.debugGame = {
     getState: function() {
