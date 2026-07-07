@@ -34,6 +34,7 @@ let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
 let gameInterval = null;
 let level = 0;
+let bigFoodSpawned = false; // Track if big food is currently active
 
 // Speed display
 let speedDisplay = null;
@@ -151,6 +152,7 @@ function initGame() {
     level = 0;
     currentSpeed = BASE_SPEED;
     bigFood = null;
+    bigFoodSpawned = false;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
@@ -169,7 +171,6 @@ function initGame() {
     createSpeedDisplay();
     
     spawnFood();
-    trySpawnBigFood();
     
     // Clear any existing interval
     if (gameInterval) {
@@ -210,8 +211,9 @@ function updateSpeedDisplay() {
     if (speedDisplay) {
         const movesPerSec = (1000 / currentSpeed).toFixed(1);
         const foods = foodsEaten;
+        const bigFoodStatus = bigFoodSpawned ? '⭐' : '';
         speedDisplay.innerHTML = `
-            🍎 ${foods} foods eaten | Level ${level} | ⚡ ${movesPerSec}/sec
+            🍎 ${foods} foods eaten | Level ${level} | ⚡ ${movesPerSec}/sec ${bigFoodStatus}
         `;
     }
 }
@@ -226,12 +228,16 @@ function spawnFood() {
     } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) || 
              (bigFood && bigFood.x === newFood.x && bigFood.y === newFood.y));
     food = newFood;
+    
+    // Try to spawn big food after regular food spawns (if not already active)
+    trySpawnBigFood();
+    
     drawCanvas();
 }
 
 function trySpawnBigFood() {
     // Only spawn big food if there isn't already one and random chance
-    if (!bigFood && Math.random() < BIG_FOOD_CHANCE) {
+    if (!bigFoodSpawned && !bigFood && Math.random() < BIG_FOOD_CHANCE) {
         let newBigFood;
         let attempts = 0;
         do {
@@ -245,7 +251,9 @@ function trySpawnBigFood() {
         
         if (attempts < 100) {
             bigFood = newBigFood;
+            bigFoodSpawned = true;
             console.log('🌟 Big Food spawned!');
+            updateSpeedDisplay();
         }
     }
     drawCanvas();
@@ -284,6 +292,8 @@ function moveSnake() {
     if (bigFood && head.x === bigFood.x && head.y === bigFood.y) {
         ateBigFood = true;
         bigFood = null;
+        bigFoodSpawned = false;
+        console.log('🌟 Big Food eaten! +5 points!');
     }
     
     // Check if ate regular food
@@ -303,10 +313,19 @@ function moveSnake() {
             // Normal food
             score++;
             foodsEaten++;
+            // BIG FOOD DISAPPEARS when regular food is eaten!
+            if (bigFoodSpawned && bigFood) {
+                bigFood = null;
+                bigFoodSpawned = false;
+                console.log('💔 Big Food disappeared! You ate the small food instead.');
+                // Show a brief visual indicator? We'll just update the display.
+                updateSpeedDisplay();
+            }
         }
         scoreDisplay.textContent = score;
+        
+        // Spawn new food
         spawnFood();
-        trySpawnBigFood();
         
         // Speed up every SPEED_LEVEL_INTERVAL foods
         if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
@@ -647,6 +666,7 @@ drawCanvas();
 console.log('🐍 Snake Game loaded!');
 console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
 console.log('🌟 Big Food: 20% chance, +5 points!');
+console.log('💡 Big Food disappears if you eat the small food first!');
 
 // Debug helper
 window.debugGame = {
