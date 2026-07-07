@@ -24,7 +24,7 @@ const BIG_FOOD_SCORE_BONUS = 5; // Big food gives 5 points
 // State
 let snake = [];
 let food = {};
-let bigFood = null; // Big food object {x, y} or null
+let bigFood = null;
 let direction = 'right';
 let nextDirection = 'right';
 let score = 0;
@@ -34,10 +34,13 @@ let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
 let gameInterval = null;
 let level = 0;
-let bigFoodSpawned = false; // Track if big food is currently active
+let bigFoodSpawned = false;
+let isPaused = false;
+let pausedTime = 0;
 
 // Speed display
 let speedDisplay = null;
+let pauseButton = null;
 
 // Initialize
 highScoreDisplay.textContent = highScore;
@@ -133,6 +136,148 @@ function shareLeaderboard() {
     }
 }
 
+// ===== PAUSE FUNCTIONS =====
+function togglePause() {
+    if (!gameRunning) return;
+    
+    isPaused = !isPaused;
+    
+    if (isPaused) {
+        // Pause the game
+        if (gameInterval) {
+            clearInterval(gameInterval);
+            gameInterval = null;
+        }
+        console.log('⏸️ Game Paused');
+        updatePauseButton();
+        drawPauseOverlay(true);
+    } else {
+        // Resume the game
+        gameInterval = setInterval(moveSnake, currentSpeed);
+        console.log('▶️ Game Resumed');
+        updatePauseButton();
+        drawPauseOverlay(false);
+    }
+}
+
+function createPauseButton() {
+    // Check if button already exists
+    const existingBtn = document.getElementById('pauseButton');
+    if (existingBtn) return;
+    
+    pauseButton = document.createElement('button');
+    pauseButton.id = 'pauseButton';
+    pauseButton.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        border: 2px solid rgba(255,255,255,0.2);
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    `;
+    pauseButton.innerHTML = '⏸️';
+    pauseButton.setAttribute('aria-label', 'Pause Game');
+    
+    // Add hover effect
+    pauseButton.addEventListener('mouseenter', () => {
+        pauseButton.style.background = 'rgba(0,0,0,0.9)';
+        pauseButton.style.borderColor = 'rgba(255,255,255,0.4)';
+        pauseButton.style.transform = 'scale(1.05)';
+    });
+    pauseButton.addEventListener('mouseleave', () => {
+        pauseButton.style.background = 'rgba(0,0,0,0.7)';
+        pauseButton.style.borderColor = 'rgba(255,255,255,0.2)';
+        pauseButton.style.transform = 'scale(1)';
+    });
+    
+    // Touch events
+    pauseButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        pauseButton.style.transform = 'scale(0.9)';
+        togglePause();
+    }, { passive: false });
+    
+    pauseButton.addEventListener('touchend', () => {
+        pauseButton.style.transform = 'scale(1)';
+    });
+    
+    // Mouse click
+    pauseButton.addEventListener('click', togglePause);
+    
+    document.body.appendChild(pauseButton);
+}
+
+function updatePauseButton() {
+    if (pauseButton) {
+        pauseButton.innerHTML = isPaused ? '▶️' : '⏸️';
+        pauseButton.setAttribute('aria-label', isPaused ? 'Resume Game' : 'Pause Game');
+    }
+}
+
+function drawPauseOverlay(show) {
+    // Remove existing pause overlay
+    const existingOverlay = document.querySelector('.pause-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+    
+    if (show) {
+        const overlay = document.createElement('div');
+        overlay.className = 'pause-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: sans-serif;
+            animation: fadeIn 0.3s ease-out;
+        `;
+        overlay.innerHTML = `
+            <div style="font-size: 64px; margin-bottom: 20px;">⏸️</div>
+            <h2 style="font-size: 32px; font-weight: bold; margin: 0;">PAUSED</h2>
+            <p style="font-size: 16px; color: rgba(255,255,255,0.6); margin-top: 10px;">Press <strong>Space</strong> or tap the button to resume</p>
+        `;
+        document.body.appendChild(overlay);
+        
+        // Add keydown listener for space bar while paused
+        document.addEventListener('keydown', handlePauseKeyDown);
+    } else {
+        document.removeEventListener('keydown', handlePauseKeyDown);
+    }
+}
+
+function handlePauseKeyDown(e) {
+    if (e.key === ' ' || e.key === 'Space') {
+        e.preventDefault();
+        if (isPaused) {
+            togglePause();
+        }
+    }
+}
+
 // ===== GAME FUNCTIONS =====
 function initGame() {
     console.log('🐍 ===== NEW GAME =====');
@@ -153,6 +298,7 @@ function initGame() {
     currentSpeed = BASE_SPEED;
     bigFood = null;
     bigFoodSpawned = false;
+    isPaused = false;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
@@ -160,6 +306,15 @@ function initGame() {
     
     const savePrompt = document.querySelector('.save-prompt');
     if (savePrompt) savePrompt.remove();
+    
+    // Remove pause overlay if exists
+    const pauseOverlay = document.querySelector('.pause-overlay');
+    if (pauseOverlay) pauseOverlay.remove();
+    document.removeEventListener('keydown', handlePauseKeyDown);
+    
+    // Create pause button
+    createPauseButton();
+    updatePauseButton();
     
     // Remove old speed display
     if (speedDisplay) {
@@ -212,8 +367,9 @@ function updateSpeedDisplay() {
         const movesPerSec = (1000 / currentSpeed).toFixed(1);
         const foods = foodsEaten;
         const bigFoodStatus = bigFoodSpawned ? '⭐' : '';
+        const pauseStatus = isPaused ? ' ⏸️' : '';
         speedDisplay.innerHTML = `
-            🍎 ${foods} foods eaten | Level ${level} | ⚡ ${movesPerSec}/sec ${bigFoodStatus}
+            🍎 ${foods} foods eaten | Level ${level} | ⚡ ${movesPerSec}/sec ${bigFoodStatus}${pauseStatus}
         `;
     }
 }
@@ -229,14 +385,12 @@ function spawnFood() {
              (bigFood && bigFood.x === newFood.x && bigFood.y === newFood.y));
     food = newFood;
     
-    // Try to spawn big food after regular food spawns (if not already active)
     trySpawnBigFood();
     
     drawCanvas();
 }
 
 function trySpawnBigFood() {
-    // Only spawn big food if there isn't already one and random chance
     if (!bigFoodSpawned && !bigFood && Math.random() < BIG_FOOD_CHANCE) {
         let newBigFood;
         let attempts = 0;
@@ -261,7 +415,7 @@ function trySpawnBigFood() {
 
 // ===== MAIN GAME LOOP =====
 function moveSnake() {
-    if (!gameRunning) return;
+    if (!gameRunning || isPaused) return;
     
     // Apply direction
     direction = nextDirection;
@@ -287,13 +441,12 @@ function moveSnake() {
         return;
     }
     
-    // Check if ate big food first (priority)
+    // Check if ate big food
     let ateBigFood = false;
     if (bigFood && head.x === bigFood.x && head.y === bigFood.y) {
         ateBigFood = true;
         bigFood = null;
         bigFoodSpawned = false;
-        console.log('🌟 Big Food eaten! +5 points!');
     }
     
     // Check if ate regular food
@@ -305,35 +458,28 @@ function moveSnake() {
         snake.pop();
     } else {
         if (ateBigFood) {
-            // Big food: more points
             score += BIG_FOOD_SCORE_BONUS;
-            foodsEaten += 2; // Counts as 2 foods
+            foodsEaten += 2;
             console.log(`🌟 Big Food eaten! +${BIG_FOOD_SCORE_BONUS} points!`);
         } else {
-            // Normal food
             score++;
             foodsEaten++;
-            // BIG FOOD DISAPPEARS when regular food is eaten!
             if (bigFoodSpawned && bigFood) {
                 bigFood = null;
                 bigFoodSpawned = false;
                 console.log('💔 Big Food disappeared! You ate the small food instead.');
-                // Show a brief visual indicator? We'll just update the display.
                 updateSpeedDisplay();
             }
         }
         scoreDisplay.textContent = score;
         
-        // Spawn new food
         spawnFood();
         
-        // Speed up every SPEED_LEVEL_INTERVAL foods
         if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
             const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
             if (newSpeed !== currentSpeed) {
                 currentSpeed = newSpeed;
                 level++;
-                // Reset interval with new speed
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
                 console.log(`⚡ Level ${level}: Speed ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
@@ -351,6 +497,17 @@ function gameOver() {
         clearInterval(gameInterval);
         gameInterval = null;
     }
+    
+    // Remove pause button
+    if (pauseButton) {
+        pauseButton.remove();
+        pauseButton = null;
+    }
+    
+    // Remove pause overlay
+    const pauseOverlay = document.querySelector('.pause-overlay');
+    if (pauseOverlay) pauseOverlay.remove();
+    document.removeEventListener('keydown', handlePauseKeyDown);
     
     console.log('💀 Game Over! Score:', score, 'Final Speed:', currentSpeed, 'ms', 'Level:', level);
     
@@ -448,7 +605,7 @@ function drawCanvas() {
     });
     ctx.shadowBlur = 0;
     
-    // Draw big food (if exists) - Golden with star
+    // Draw big food
     if (bigFood) {
         const bx = bigFood.x * CELL_SIZE;
         const by = bigFood.y * CELL_SIZE;
@@ -497,7 +654,7 @@ function drawCanvas() {
 
 // ===== CONTROLS =====
 function changeDirection(newDir) {
-    if (!gameRunning) return;
+    if (!gameRunning || isPaused) return;
     if ((newDir === 'up' && direction === 'down') ||
         (newDir === 'down' && direction === 'up') ||
         (newDir === 'left' && direction === 'right') ||
@@ -516,18 +673,28 @@ function highlightButton(buttonId) {
     }, 150);
 }
 
-// Keyboard
+// ===== KEYBOARD CONTROLS =====
 document.addEventListener('keydown', (e) => {
+    // Space bar for pause
+    if (e.key === ' ' || e.key === 'Space') {
+        e.preventDefault();
+        // Only toggle pause if game is running and not game over
+        if (gameRunning && gameOverOverlay.classList.contains('hidden')) {
+            togglePause();
+        }
+        return;
+    }
+    
+    // Arrow keys for direction
     switch(e.key) {
         case 'ArrowUp': e.preventDefault(); changeDirection('up'); highlightButton('upBtn'); break;
         case 'ArrowDown': e.preventDefault(); changeDirection('down'); highlightButton('downBtn'); break;
         case 'ArrowLeft': e.preventDefault(); changeDirection('left'); highlightButton('leftBtn'); break;
         case 'ArrowRight': e.preventDefault(); changeDirection('right'); highlightButton('rightBtn'); break;
-        case ' ': e.preventDefault(); if (!gameRunning) initGame(); break;
     }
 });
 
-// Touch Swipe
+// ===== TOUCH SWIPE =====
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -566,7 +733,7 @@ canvas.addEventListener('touchend', (e) => {
     touchStartY = 0;
 }, { passive: false });
 
-// Button Controls
+// ===== BUTTON CONTROLS =====
 function setupButton(id, direction) {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -592,7 +759,7 @@ setupButton('rightBtn', 'right');
 document.getElementById('startBtn').addEventListener('click', initGame);
 document.getElementById('restartBtn').addEventListener('click', initGame);
 
-// Share Functions
+// ===== SHARE FUNCTIONS =====
 document.getElementById('shareBtn').addEventListener('click', async () => {
     if (navigator.share) {
         try {
@@ -633,7 +800,7 @@ document.getElementById('shareScoreBtn').addEventListener('click', async () => {
 document.getElementById('shareLeaderboardBtn').addEventListener('click', shareLeaderboard);
 document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
 
-// Polyfill
+// ===== POLYFILL =====
 if (!CanvasRenderingContext2D.prototype.roundRect) {
     CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
         if (r > w/2) r = w/2;
@@ -652,21 +819,21 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     };
 }
 
-// PWA
+// ===== PWA =====
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
 });
 
-// INITIALIZE
+// ===== INITIALIZE =====
 displayLeaderboard();
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
 console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
 console.log('🌟 Big Food: 20% chance, +5 points!');
-console.log('💡 Big Food disappears if you eat the small food first!');
+console.log('⏸️ Press SPACE or tap the pause button to pause/resume');
 
 // Debug helper
 window.debugGame = {
@@ -679,7 +846,8 @@ window.debugGame = {
             movesPerSecond: (1000 / currentSpeed).toFixed(1),
             gameRunning: gameRunning,
             level: level,
-            hasBigFood: bigFood !== null
+            hasBigFood: bigFood !== null,
+            isPaused: isPaused
         };
     },
     setSpeed: function(newSpeed) {
