@@ -12,9 +12,9 @@ const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
 // ===== SPEED SETTINGS - EXTREMELY SLOW =====
-const BASE_SPEED = 1000; // 1 SECOND per move - VERY SLOW
-const MIN_SPEED = 100;
-const SPEED_LEVEL_INTERVAL = 3; // Speed up every 3 foods
+const BASE_SPEED = 350; // 1 SECOND per move - VERY SLOW
+const MIN_SPEED = 80;
+const SPEED_LEVEL_INTERVAL = 5; // Speed up every 3 foods
 const SPEED_INCREMENT = 50; // Increase speed by 50ms each time
 
 // State
