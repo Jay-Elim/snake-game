@@ -55,6 +55,55 @@
             color: var(--text-white);
         }
 
+        /* ===== TOP HUD ===== */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 4px 12px 4px;
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-gray);
+        }
+
+        .hud-item .value {
+            color: var(--text-white);
+            font-size: 16px;
+        }
+
+        .hud-item .value.score {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 20px;
+        }
+
+        .hud-item .value.level {
+            color: #fbbf24;
+        }
+
         /* ===== CANVAS ===== */
         #gameCanvas {
             touch-action: none;
@@ -67,7 +116,7 @@
             display: block;
         }
 
-        /* ===== CONTROL BUTTONS - IMPROVED ===== */
+        /* ===== CONTROL BUTTONS ===== */
         .control-btn {
             width: 72px;
             height: 72px;
@@ -91,13 +140,11 @@
             will-change: transform;
         }
 
-        /* Glow base state */
         .control-btn.glow {
             background: rgba(16,185,129,0.08);
             border-color: rgba(16,185,129,0.15);
         }
 
-        /* === PRESS EFFECT - ACTIVE STATE === */
         .control-btn:active,
         .control-btn.btn-pressed {
             transform: scale(0.85);
@@ -109,7 +156,6 @@
             transition: all 0.05s ease !important;
         }
 
-        /* Glow pulse when pressed */
         .control-btn:active::after,
         .control-btn.btn-pressed::after {
             content: '';
@@ -122,21 +168,9 @@
             z-index: -1;
         }
 
-        /* Hover effect for desktop */
         .control-btn:hover {
             background: rgba(255,255,255,0.08);
             border-color: rgba(255,255,255,0.15);
-        }
-
-        /* ===== SCORE DISPLAY ===== */
-        .score-value {
-            font-feature-settings: "tnum";
-            background: linear-gradient(135deg, #10b981, #34d399);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-size: 28px;
-            font-weight: 700;
         }
 
         /* ===== OVERLAYS ===== */
@@ -367,7 +401,6 @@
             margin-top: 4px;
         }
 
-        /* Notification animations */
         @keyframes speedPop {
             0% {
                 opacity: 0;
@@ -405,21 +438,17 @@
             }
         }
 
-        /* Responsive notification */
         @media (max-width: 480px) {
             .speed-notification .notification-content {
                 padding: 18px 28px;
                 min-width: 160px;
             }
-            
             .speed-notification .notification-emoji {
                 font-size: 36px;
             }
-            
             .speed-notification .notification-label {
                 font-size: 17px;
             }
-            
             .speed-notification .notification-level {
                 font-size: 12px;
             }
@@ -448,15 +477,27 @@
             }
         }
 
+        /* ===== PAUSE OVERLAY ===== */
+        .pause-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            animation: fadeIn 0.3s ease-out;
+        }
+
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         /* ===== RESPONSIVE ===== */
@@ -477,14 +518,20 @@
                 padding: 8px 12px;
                 font-size: 13px;
             }
-            
-            .score-value {
-                font-size: 24px;
-            }
 
             .share-btn {
                 padding: 8px 14px;
                 font-size: 12px;
+            }
+
+            .hud-item {
+                font-size: 11px;
+            }
+            .hud-item .value {
+                font-size: 13px;
+            }
+            .hud-item .value.score {
+                font-size: 16px;
             }
         }
 
@@ -506,15 +553,20 @@
 <body>
     <div class="w-full max-w-[420px] p-4 mx-auto">
         
-        <!-- Header -->
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <h1 class="text-2xl font-bold text-white tracking-tight">🐍 Snake</h1>
-                <p class="text-sm text-gray-400">Swipe or use buttons</p>
+        <!-- ===== TOP HUD ===== -->
+        <div class="hud">
+            <div class="hud-left">
+                <div class="hud-item">
+                    🍎 <span class="value" id="scoreDisplay">0</span>
+                </div>
+                <div class="hud-item">
+                    🏆 <span class="value level" id="levelDisplay">0</span>
+                </div>
             </div>
-            <div class="text-right">
-                <div class="score-value" id="scoreDisplay">0</div>
-                <div class="text-xs text-gray-500">High: <span id="highScoreDisplay" class="text-yellow-400">0</span></div>
+            <div class="hud-right">
+                <div class="hud-item">
+                    🔥 <span class="value" id="highScoreDisplay">0</span>
+                </div>
             </div>
         </div>
 
@@ -526,7 +578,10 @@
             <div id="gameOverOverlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center hidden">
                 <div class="text-6xl mb-2">💀</div>
                 <h2 class="text-2xl font-bold text-white mb-1">Game Over</h2>
-                <p class="text-gray-400 text-sm mb-4">Score: <span id="finalScore" class="text-emerald-400 font-bold">0</span></p>
+                <div class="text-gray-400 text-sm mb-2">Score: <span id="finalScore" class="text-emerald-400 font-bold">0</span></div>
+                <div class="text-gray-500 text-xs mb-4" id="finalStats">
+                    🍎 <span id="finalFoods">0</span> foods • Level <span id="finalLevel">0</span> • ⚡ <span id="finalSpeed">0</span> moves/sec
+                </div>
                 <button id="restartBtn" class="btn-primary">
                     Play Again
                 </button>
@@ -581,7 +636,6 @@
             </div>
             
             <div id="leaderboardList" class="space-y-2">
-                <!-- Rows will be added by JavaScript -->
                 <div class="text-center text-gray-500 py-2 text-sm">No scores yet. Be the first! 🐍</div>
             </div>
         </div>
@@ -589,7 +643,6 @@
         <!-- ===== BRANDING FOOTER ===== -->
         <div class="mt-6 pt-4 border-t border-white/5">
             <div class="flex flex-col items-center gap-3">
-                <!-- Brand -->
                 <div class="flex items-center gap-2">
                     <span class="text-sm font-bold text-white">🐍 Snake Game</span>
                     <span class="text-[10px] text-gray-600">•</span>
@@ -602,7 +655,6 @@
                     </a>
                 </div>
                 
-                <!-- Social Links -->
                 <div class="flex items-center gap-3">
                     <a href="https://twitter.com/jayelimpro" 
                        target="_blank" 
@@ -625,10 +677,9 @@
                         🌐 Portfolio
                     </a>
                     <span class="text-gray-700 text-[10px]">•</span>
-                    <span class="text-[10px] text-gray-600">🐍 v1.1</span>
+                    <span class="text-[10px] text-gray-600">🐍 v2.0</span>
                 </div>
                 
-                <!-- Made with love -->
                 <p class="text-[10px] text-gray-600">
                     Made with ❤️ • Built in 4 hours • Open source
                 </p>
@@ -636,6 +687,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>
