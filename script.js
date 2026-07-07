@@ -11,21 +11,13 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS =====
-const BASE_SPEED = 600; // Starting speed (very slow)
-const MIN_SPEED = 100; // Fastest speed
-const SPEED_INCREMENT_NORMAL = 8; // Normal speed increase
-const SPEED_INCREMENT_BIG = 20; // Big food speed increase
-const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten
-
-// ===== BIG FOOD SETTINGS =====
-const BIG_FOOD_CHANCE = 0.20; // 20% chance to spawn big food
-const BIG_FOOD_SCORE_BONUS = 3; // Big food gives 3 points
+// ===== SPEED SETTINGS - TEST WITH VERY SLOW SPEED =====
+const BASE_SPEED = 600; // 600ms between moves (very slow)
+const MIN_SPEED = 100;
 
 // State
 let snake = [];
 let food = {};
-let foodType = 'normal'; // 'normal' or 'big'
 let direction = 'right';
 let nextDirection = 'right';
 let score = 0;
@@ -34,20 +26,8 @@ let gameRunning = false;
 let gameInterval = null;
 let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
-let lastMoveTime = 0;
-const MOVE_COOLDOWN = 50;
 
-// Input buffer
-let inputBuffer = [];
-let isProcessingInput = false;
-
-// Speed notification tracking
-let lastSpeedLevel = 0;
-
-// Initialize
-highScoreDisplay.textContent = highScore;
-
-// --- LEADERBOARD FUNCTIONS ---
+// Leaderboard functions
 const LEADERBOARD_KEY = 'snake_leaderboard';
 const MAX_LEADERBOARD_ENTRIES = 10;
 
@@ -62,19 +42,15 @@ function getLeaderboard() {
 
 function saveToLeaderboard(name, score) {
     const leaderboard = getLeaderboard();
-    
     leaderboard.push({
         name: name || 'Anonymous',
         score: score,
         date: new Date().toLocaleDateString()
     });
-    
     leaderboard.sort((a, b) => b.score - a.score);
-    
     if (leaderboard.length > MAX_LEADERBOARD_ENTRIES) {
         leaderboard.length = MAX_LEADERBOARD_ENTRIES;
     }
-    
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
     displayLeaderboard();
 }
@@ -82,14 +58,11 @@ function saveToLeaderboard(name, score) {
 function displayLeaderboard() {
     const leaderboard = getLeaderboard();
     const list = document.getElementById('leaderboardList');
-    
     if (leaderboard.length === 0) {
         list.innerHTML = '<div class="text-center text-gray-500 py-2 text-sm">No scores yet. Be the first! 🐍</div>';
         return;
     }
-    
     const medals = ['🥇', '🥈', '🥉'];
-    
     list.innerHTML = leaderboard.map((entry, index) => {
         const medal = index < 3 ? medals[index] : `#${index + 1}`;
         const isCurrentUser = entry.name === 'You';
@@ -129,17 +102,13 @@ function shareLeaderboard() {
         alert('No scores to share yet!');
         return;
     }
-    
     let message = '🏆 Snake Game Leaderboard 🏆\n\n';
     const medals = ['🥇', '🥈', '🥉'];
-    
     leaderboard.forEach((entry, index) => {
         const medal = index < 3 ? medals[index] : `${index + 1}.`;
         message += `${medal} ${entry.name}: ${entry.score} points\n`;
     });
-    
     message += `\nPlay and beat them: ${window.location.href}`;
-    
     if (navigator.share) {
         navigator.share({ text: message });
     } else {
@@ -149,12 +118,11 @@ function shareLeaderboard() {
     }
 }
 
-// --- Game Functions ---
+// ===== GAME FUNCTIONS =====
 function initGame() {
-    console.log('🐍 ===== NEW GAME STARTING =====');
-    console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
-    console.log(`🌟 Big Food Chance: ${BIG_FOOD_CHANCE * 100}%`);
+    console.log('🐍 Game starting with speed:', BASE_SPEED, 'ms');
     
+    // Reset snake
     const startX = Math.floor(GRID_SIZE / 2);
     const startY = Math.floor(GRID_SIZE / 2);
     snake = [
@@ -164,80 +132,50 @@ function initGame() {
     ];
     direction = 'right';
     nextDirection = 'right';
-    inputBuffer = [];
-    isProcessingInput = false;
     score = 0;
     foodsEaten = 0;
     currentSpeed = BASE_SPEED;
-    lastSpeedLevel = 0;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
     startOverlay.classList.add('hidden');
+    
+    // Remove save prompt if exists
     const savePrompt = document.querySelector('.save-prompt');
     if (savePrompt) savePrompt.remove();
-    spawnFood();
-    clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, currentSpeed);
-    lastMoveTime = performance.now();
     
-    console.log(`✅ Game initialized! Speed: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
+    spawnFood();
+    
+    // Clear any existing interval
+    if (gameInterval) {
+        clearInterval(gameInterval);
+    }
+    
+    // Start the game loop with the current speed
+    gameInterval = setInterval(moveSnake, currentSpeed);
+    console.log('✅ Game interval started with speed:', currentSpeed, 'ms');
 }
 
 function spawnFood() {
     let newFood;
-    let attempts = 0;
     do {
         newFood = {
             x: Math.floor(Math.random() * GRID_SIZE),
             y: Math.floor(Math.random() * GRID_SIZE)
         };
-        attempts++;
-    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) && attempts < 100);
-    
-    // Determine food type
-    if (Math.random() < BIG_FOOD_CHANCE) {
-        foodType = 'big';
-        console.log('🌟 BIG FOOD spawned at position:', newFood);
-    } else {
-        foodType = 'normal';
-    }
-    
+    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
     food = newFood;
+    drawCanvas();
 }
 
-function processInputBuffer() {
-    if (isProcessingInput || inputBuffer.length === 0) return;
-    
-    isProcessingInput = true;
-    const newDir = inputBuffer.shift();
-    
-    if ((newDir === 'up' && direction !== 'down') ||
-        (newDir === 'down' && direction !== 'up') ||
-        (newDir === 'left' && direction !== 'right') ||
-        (newDir === 'right' && direction !== 'left')) {
-        nextDirection = newDir;
-    }
-    
-    isProcessingInput = false;
-    
-    if (inputBuffer.length > 0) {
-        setTimeout(processInputBuffer, 30);
-    }
-}
-
-function gameLoop(timestamp) {
+// ===== MAIN GAME LOOP - SIMPLIFIED =====
+function moveSnake() {
     if (!gameRunning) return;
     
-    processInputBuffer();
-    
-    if (timestamp - lastMoveTime < MOVE_COOLDOWN) {
-        requestAnimationFrame(gameLoop);
-        return;
-    }
-    
+    // Apply direction
     direction = nextDirection;
     
+    // Calculate new head position
     const head = { ...snake[0] };
     switch(direction) {
         case 'up': head.y--; break;
@@ -246,115 +184,81 @@ function gameLoop(timestamp) {
         case 'right': head.x++; break;
     }
     
+    // Check wall collision
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
         gameOver();
         return;
     }
     
+    // Check self collision
     if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
         gameOver();
         return;
     }
     
+    // Check if food eaten
     const ateFood = head.x === food.x && head.y === food.y;
     
+    // Move snake
     snake.unshift(head);
     if (!ateFood) {
         snake.pop();
     } else {
-        // --- FOOD EATEN LOGGING ---
-        console.log(`🍽️ Food eaten! Type: ${foodType.toUpperCase()}`);
-        console.log(`📊 Before: score=${score}, foodsEaten=${foodsEaten}, speed=${currentSpeed}ms`);
-        
-        if (foodType === 'big') {
-            // Big food: more points and bigger speed increase
-            const bonusPoints = BIG_FOOD_SCORE_BONUS;
-            score += bonusPoints;
-            foodsEaten += 2; // Counts as 2 foods eaten
-            console.log(`🌟 BIG FOOD! +${bonusPoints} points! Counts as 2 foods.`);
-            
-            // Big speed increase - applies immediately
-            const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT_BIG);
-            if (newSpeed !== currentSpeed) {
-                currentSpeed = newSpeed;
-                clearInterval(gameInterval);
-                gameInterval = setInterval(gameLoop, currentSpeed);
-                console.log(`⚡ BIG SPEED BOOST! New speed: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
-                showSpeedNotification('big');
-            }
-        } else {
-            // Normal food
-            score++;
-            foodsEaten++;
-            console.log(`🍎 Normal food. Score: ${score}, Total foods eaten: ${foodsEaten}`);
-            
-            // Normal speed increase - every SPEED_LEVEL_INTERVAL foods
-            if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
-                const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT_NORMAL);
-                if (newSpeed !== currentSpeed) {
-                    currentSpeed = newSpeed;
-                    clearInterval(gameInterval);
-                    gameInterval = setInterval(gameLoop, currentSpeed);
-                    const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
-                    console.log(`⚡ Speed increased to: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec) - Level ${speedLevel}`);
-                    showSpeedNotification('normal');
-                } else {
-                    console.log(`⚠️ Speed at minimum: ${currentSpeed}ms`);
-                }
-            }
-        }
-        
-        console.log(`📊 After: score=${score}, foodsEaten=${foodsEaten}, speed=${currentSpeed}ms`);
-        console.log('---');
-        
+        score++;
+        foodsEaten++;
         scoreDisplay.textContent = score;
         spawnFood();
+        
+        // Speed up every 5 foods
+        if (foodsEaten % 5 === 0) {
+            const newSpeed = Math.max(MIN_SPEED, currentSpeed - 10);
+            if (newSpeed !== currentSpeed) {
+                currentSpeed = newSpeed;
+                // Reset interval with new speed
+                clearInterval(gameInterval);
+                gameInterval = setInterval(moveSnake, currentSpeed);
+                console.log(`⚡ Speed increased to: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
+                showSpeedNotification();
+            }
+        }
     }
     
-    lastMoveTime = timestamp;
     drawCanvas();
-    requestAnimationFrame(gameLoop);
 }
 
-// --- SPEED NOTIFICATION ---
-function showSpeedNotification(type) {
+// ===== SPEED NOTIFICATION =====
+function showSpeedNotification() {
     const existing = document.querySelector('.speed-notification');
     if (existing) existing.remove();
     
     const notification = document.createElement('div');
     notification.className = 'speed-notification';
     
+    const speedLevel = Math.floor(foodsEaten / 5);
     let emoji = '🐍';
     let color = '#10b981';
     let label = 'Level Up!';
-    let speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
     
-    if (type === 'big') {
-        emoji = '🌟';
+    if (speedLevel <= 2) {
+        emoji = '🐢';
+        color = '#34d399';
+        label = 'Getting Started';
+    } else if (speedLevel <= 4) {
+        emoji = '🐍';
+        color = '#10b981';
+        label = 'Speeding Up';
+    } else if (speedLevel <= 6) {
+        emoji = '⚡';
         color = '#fbbf24';
-        label = 'BIG SPEED BOOST!';
+        label = 'Fast!';
+    } else if (speedLevel <= 8) {
+        emoji = '🔥';
+        color = '#f472b6';
+        label = 'On Fire!';
     } else {
-        if (speedLevel <= 2) {
-            emoji = '🐢';
-            color = '#34d399';
-            label = 'Getting Started';
-        } else if (speedLevel <= 4) {
-            emoji = '🐍';
-            color = '#10b981';
-            label = 'Speeding Up';
-        } else if (speedLevel <= 6) {
-            emoji = '⚡';
-            color = '#fbbf24';
-            label = 'Fast!';
-        } else if (speedLevel <= 8) {
-            emoji = '🔥';
-            color = '#f472b6';
-            label = 'On Fire!';
-        } else {
-            emoji = '💨';
-            color = '#ef4444';
-            label = 'Light Speed!';
-        }
+        emoji = '💨';
+        color = '#ef4444';
+        label = 'Light Speed!';
     }
     
     notification.innerHTML = `
@@ -379,21 +283,17 @@ function showSpeedNotification(type) {
 
 function gameOver() {
     gameRunning = false;
-    clearInterval(gameInterval);
-    inputBuffer = [];
-    isProcessingInput = false;
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+    }
     
-    console.log('💀 ===== GAME OVER =====');
-    console.log(`📊 Final Score: ${score}`);
-    console.log(`📊 Final Speed: ${currentSpeed}ms (${Math.round(1000 / currentSpeed)} moves/sec)`);
-    console.log(`📊 Total Foods Eaten: ${foodsEaten}`);
-    console.log(`📊 Snake Length: ${snake.length}`);
+    console.log('💀 Game Over! Score:', score, 'Speed:', currentSpeed, 'ms');
     
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('snakeHighScore', highScore);
         highScoreDisplay.textContent = highScore;
-        console.log(`🏆 NEW HIGH SCORE: ${highScore}!`);
     }
     
     finalScore.textContent = score;
@@ -436,10 +336,6 @@ function showSaveScorePrompt(score) {
         displayLeaderboard();
         const prompt = document.querySelector('.save-prompt');
         if (prompt) prompt.remove();
-        const leaderboardSection = document.getElementById('leaderboardSection');
-        if (leaderboardSection) {
-            leaderboardSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
     });
     
     document.getElementById('skipSaveBtn')?.addEventListener('click', () => {
@@ -457,6 +353,7 @@ function showSaveScorePrompt(score) {
 function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Draw grid
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= GRID_SIZE; i++) {
@@ -470,6 +367,7 @@ function drawCanvas() {
         ctx.stroke();
     }
     
+    // Draw snake
     snake.forEach((segment, index) => {
         const x = segment.x * CELL_SIZE;
         const y = segment.y * CELL_SIZE;
@@ -489,53 +387,24 @@ function drawCanvas() {
     // Draw food
     const fx = food.x * CELL_SIZE;
     const fy = food.y * CELL_SIZE;
+    ctx.fillStyle = '#f472b6';
+    ctx.shadowColor = 'rgba(244,114,182,0.6)';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 3, 0, Math.PI * 2);
+    ctx.fill();
     
-    if (foodType === 'big') {
-        // Big food - golden with glow
-        ctx.shadowColor = 'rgba(251,191,36,0.8)';
-        ctx.shadowBlur = 24;
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner glow
-        ctx.shadowBlur = 40;
-        ctx.shadowColor = 'rgba(251,191,36,0.3)';
-        ctx.strokeStyle = 'rgba(251,191,36,0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Star effect
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('⭐', fx + CELL_SIZE/2, fy + CELL_SIZE/2);
-    } else {
-        // Normal food - pink
-        ctx.fillStyle = '#f472b6';
-        ctx.shadowColor = 'rgba(244,114,182,0.6)';
-        ctx.shadowBlur = 16;
-        ctx.beginPath();
-        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = 'rgba(244,114,182,0.2)';
-        ctx.strokeStyle = 'rgba(244,114,182,0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 + 2, 0, Math.PI * 2);
-        ctx.stroke();
-    }
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'rgba(244,114,182,0.2)';
+    ctx.strokeStyle = 'rgba(244,114,182,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 + 2, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.shadowBlur = 0;
 }
 
-// --- CONTROLS ---
+// ===== CONTROLS =====
 function changeDirection(newDir) {
     if (!gameRunning) return;
     
@@ -545,11 +414,7 @@ function changeDirection(newDir) {
         (newDir === 'right' && direction === 'left')) {
         return;
     }
-    
-    inputBuffer.push(newDir);
-    if (inputBuffer.length > 3) {
-        inputBuffer = inputBuffer.slice(-3);
-    }
+    nextDirection = newDir;
 }
 
 function highlightButton(buttonId) {
@@ -561,37 +426,18 @@ function highlightButton(buttonId) {
     }, 150);
 }
 
-// --- Keyboard Controls ---
+// Keyboard Controls
 document.addEventListener('keydown', (e) => {
     switch(e.key) {
-        case 'ArrowUp': 
-            e.preventDefault(); 
-            changeDirection('up');
-            highlightButton('upBtn');
-            break;
-        case 'ArrowDown': 
-            e.preventDefault(); 
-            changeDirection('down');
-            highlightButton('downBtn');
-            break;
-        case 'ArrowLeft': 
-            e.preventDefault(); 
-            changeDirection('left');
-            highlightButton('leftBtn');
-            break;
-        case 'ArrowRight': 
-            e.preventDefault(); 
-            changeDirection('right');
-            highlightButton('rightBtn');
-            break;
-        case ' ': 
-            e.preventDefault(); 
-            if (!gameRunning) initGame(); 
-            break;
+        case 'ArrowUp': e.preventDefault(); changeDirection('up'); highlightButton('upBtn'); break;
+        case 'ArrowDown': e.preventDefault(); changeDirection('down'); highlightButton('downBtn'); break;
+        case 'ArrowLeft': e.preventDefault(); changeDirection('left'); highlightButton('leftBtn'); break;
+        case 'ArrowRight': e.preventDefault(); changeDirection('right'); highlightButton('rightBtn'); break;
+        case ' ': e.preventDefault(); if (!gameRunning) initGame(); break;
     }
 });
 
-// --- Touch Swipe ---
+// Touch Swipe
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -608,7 +454,6 @@ canvas.addEventListener('touchmove', (e) => {
 
 canvas.addEventListener('touchend', (e) => {
     if (touchStartX === 0 && touchStartY === 0) return;
-    
     const touchEnd = e.changedTouches[0];
     const dx = touchEnd.clientX - touchStartX;
     const dy = touchEnd.clientY - touchStartY;
@@ -627,28 +472,24 @@ canvas.addEventListener('touchend', (e) => {
         changeDirection(dy > 0 ? 'down' : 'up');
         highlightButton(dy > 0 ? 'downBtn' : 'upBtn');
     }
-    
     touchStartX = 0;
     touchStartY = 0;
 }, { passive: false });
 
-// --- Button Controls ---
+// Button Controls
 function setupButton(id, direction) {
     const btn = document.getElementById(id);
     if (!btn) return;
-    
     btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         highlightButton(id);
         changeDirection(direction);
     }, { passive: false });
-    
     btn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         highlightButton(id);
         changeDirection(direction);
     });
-    
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
@@ -657,11 +498,11 @@ setupButton('downBtn', 'down');
 setupButton('leftBtn', 'left');
 setupButton('rightBtn', 'right');
 
-// --- Start / Restart ---
+// Start / Restart
 document.getElementById('startBtn').addEventListener('click', initGame);
 document.getElementById('restartBtn').addEventListener('click', initGame);
 
-// --- Share Functions ---
+// Share Functions
 document.getElementById('shareBtn').addEventListener('click', async () => {
     if (navigator.share) {
         try {
@@ -683,7 +524,6 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
 document.getElementById('shareScoreBtn').addEventListener('click', async () => {
     const scoreText = localStorage.getItem('snakeHighScore') || '0';
     const message = `🐍 I scored ${scoreText} points on Snake Game! Can you beat me? 🎮\n\nBuilt by @jayelimpro\nPlay here: ${window.location.href}`;
-    
     if (navigator.share) {
         try {
             await navigator.share({
@@ -703,7 +543,7 @@ document.getElementById('shareScoreBtn').addEventListener('click', async () => {
 document.getElementById('shareLeaderboardBtn').addEventListener('click', shareLeaderboard);
 document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
 
-// --- Polyfill ---
+// Polyfill
 if (!CanvasRenderingContext2D.prototype.roundRect) {
     CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
         if (r > w/2) r = w/2;
@@ -722,25 +562,23 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     };
 }
 
-// --- PWA ---
+// PWA
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
 });
 
-// --- INITIALIZE ---
+// INITIALIZE
 displayLeaderboard();
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
-console.log('🐢 BASE_SPEED:', BASE_SPEED);
-console.log('🌟 Big Food Chance:', (BIG_FOOD_CHANCE * 100) + '%');
-console.log('High Score:', highScore);
-console.log('Leaderboard:', getLeaderboard());
-console.log('📱 To see speed changes, play and watch the console!');
+console.log('🐢 BASE_SPEED:', BASE_SPEED, 'ms');
+console.log('📱 Speed test: Snake should move every', BASE_SPEED, 'ms');
+console.log('🎮 Try it! The snake should be VERY slow.');
 
-// --- DEBUG HELPER ---
+// Debug helper
 window.debugGame = {
     getState: function() {
         return {
@@ -749,18 +587,16 @@ window.debugGame = {
             foodsEaten: foodsEaten,
             currentSpeed: currentSpeed,
             movesPerSecond: Math.round(1000 / currentSpeed),
-            gameRunning: gameRunning,
-            foodType: foodType
+            gameRunning: gameRunning
         };
     },
     setSpeed: function(newSpeed) {
         if (newSpeed < MIN_SPEED) newSpeed = MIN_SPEED;
         currentSpeed = newSpeed;
-        clearInterval(gameInterval);
-        gameInterval = setInterval(gameLoop, currentSpeed);
+        if (gameInterval) {
+            clearInterval(gameInterval);
+            gameInterval = setInterval(moveSnake, currentSpeed);
+        }
         console.log(`🔧 Manual speed set to: ${currentSpeed}ms`);
     }
 };
-
-console.log('💡 Type debugGame.getState() to see current game state');
-console.log('💡 Type debugGame.setSpeed(200) to change speed manually');
