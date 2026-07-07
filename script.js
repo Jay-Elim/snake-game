@@ -405,7 +405,7 @@ function moveSnake() {
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
                 console.log(`⚡ Level ${level}: Speed ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
-                // Level-up notification removed
+                // All level-up popups removed
             }
         }
     }
@@ -751,7 +751,7 @@ console.log('🐍 Snake Game loaded!');
 console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
 console.log('🌟 Big Food: 20% chance, +5 points!');
 console.log('⏸️ Press SPACE or tap the pause button to pause/resume');
-console.log('🎯 Level-up notifications removed for cleaner gameplay');
+console.log('🎯 All level-up popups removed for clean gameplay');
 
 window.debugGame = {
     getState: function() {
