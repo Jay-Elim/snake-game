@@ -11,11 +11,11 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS =====
-const BASE_SPEED = 600; // 600ms between moves (very slow)
-const MIN_SPEED = 80;
-const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods
-const SPEED_INCREMENT = 8; // Speed increase per level
+// ===== SPEED SETTINGS - EXTREMELY SLOW =====
+const BASE_SPEED = 1000; // 1 SECOND per move - VERY SLOW
+const MIN_SPEED = 100;
+const SPEED_LEVEL_INTERVAL = 3; // Speed up every 3 foods
+const SPEED_INCREMENT = 50; // Increase speed by 50ms each time
 
 // State
 let snake = [];
@@ -28,6 +28,12 @@ let gameRunning = false;
 let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
 let gameInterval = null;
+
+// Speed display
+let speedDisplay = null;
+
+// Initialize
+highScoreDisplay.textContent = highScore;
 
 // ===== LEADERBOARD FUNCTIONS =====
 const LEADERBOARD_KEY = 'snake_leaderboard';
@@ -122,10 +128,10 @@ function shareLeaderboard() {
 
 // ===== GAME FUNCTIONS =====
 function initGame() {
-    console.log('🐍 Game starting with speed:', BASE_SPEED, 'ms');
-    console.log('🐢 This should be VERY slow - about 1 move every 0.6 seconds');
+    console.log('🐍 ===== NEW GAME =====');
+    console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms (${(1000/BASE_SPEED).toFixed(1)} moves/sec)`);
     
-    // Reset game state
+    // Reset game
     const startX = Math.floor(GRID_SIZE / 2);
     const startY = Math.floor(GRID_SIZE / 2);
     snake = [
@@ -146,6 +152,15 @@ function initGame() {
     const savePrompt = document.querySelector('.save-prompt');
     if (savePrompt) savePrompt.remove();
     
+    // Remove old speed display
+    if (speedDisplay) {
+        speedDisplay.remove();
+        speedDisplay = null;
+    }
+    
+    // Create speed display
+    createSpeedDisplay();
+    
     spawnFood();
     
     // Clear any existing interval
@@ -154,11 +169,45 @@ function initGame() {
         gameInterval = null;
     }
     
-    // === THE FIX: Pure setInterval for game loop ===
-    // No requestAnimationFrame interference!
+    // Start game loop with current speed
     gameInterval = setInterval(moveSnake, currentSpeed);
-    console.log('✅ Game interval started with speed:', currentSpeed, 'ms');
-    console.log('📊 Moves per second:', (1000 / currentSpeed).toFixed(1));
+    console.log(`✅ Game started! Speed: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
+    updateSpeedDisplay();
+}
+
+function createSpeedDisplay() {
+    speedDisplay = document.createElement('div');
+    speedDisplay.id = 'speedDisplay';
+    speedDisplay.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: #10b981;
+        padding: 8px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 1000;
+        border: 1px solid rgba(16,185,129,0.3);
+        backdrop-filter: blur(10px);
+        font-family: monospace;
+        text-align: center;
+        pointer-events: none;
+    `;
+    document.body.appendChild(speedDisplay);
+}
+
+function updateSpeedDisplay() {
+    if (speedDisplay) {
+        const movesPerSec = (1000 / currentSpeed).toFixed(1);
+        const speedMs = currentSpeed;
+        const foods = foodsEaten;
+        speedDisplay.innerHTML = `
+            ⚡ Speed: ${speedMs}ms | ${movesPerSec} moves/sec | 🍎 ${foods} foods
+        `;
+    }
 }
 
 function spawnFood() {
@@ -173,7 +222,7 @@ function spawnFood() {
     drawCanvas();
 }
 
-// ===== MAIN GAME LOOP - PURE INTERVAL =====
+// ===== MAIN GAME LOOP =====
 function moveSnake() {
     if (!gameRunning) return;
     
@@ -222,8 +271,9 @@ function moveSnake() {
                 // Reset interval with new speed
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
-                console.log(`⚡ Speed increased to: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
+                console.log(`⚡ Speed increased: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
                 showSpeedNotification();
+                updateSpeedDisplay();
             }
         }
     }
@@ -578,9 +628,9 @@ displayLeaderboard();
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
-console.log('🐢 BASE_SPEED:', BASE_SPEED, 'ms');
-console.log('📊 Moves per second:', (1000 / BASE_SPEED).toFixed(1));
-console.log('🎯 The snake should move VERY SLOWLY - about 1 move every 0.6 seconds');
+console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms (${(1000/BASE_SPEED).toFixed(1)} moves/sec)`);
+console.log('📱 The snake should move VERY SLOWLY - 1 move per second');
+console.log('💡 A speed indicator will show at the bottom of the screen');
 
 // Debug helper
 window.debugGame = {
@@ -602,6 +652,6 @@ window.debugGame = {
             gameInterval = setInterval(moveSnake, currentSpeed);
         }
         console.log(`🔧 Manual speed set to: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
+        updateSpeedDisplay();
     }
 };
-console.log('💡 Type debugGame.getState() to check current speed');
