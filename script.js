@@ -11,15 +11,21 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS - EXTREMELY SLOW START =====
-const BASE_SPEED = 600; // Starting speed (very slow - was 350)
-const MIN_SPEED = 100; // Fastest speed (was 90)
-const SPEED_INCREMENT = 8; // Speed increase per level (was 5)
-const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten (was 6)
+// ===== SPEED SETTINGS =====
+const BASE_SPEED = 600; // Starting speed (very slow)
+const MIN_SPEED = 100; // Fastest speed
+const SPEED_INCREMENT_NORMAL = 8; // Normal speed increase
+const SPEED_INCREMENT_BIG = 20; // Big food speed increase
+const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods eaten
+
+// ===== BIG FOOD SETTINGS =====
+const BIG_FOOD_CHANCE = 0.20; // 20% chance to spawn big food
+const BIG_FOOD_SCORE_BONUS = 3; // Big food gives 3 points
 
 // State
 let snake = [];
 let food = {};
+let foodType = 'normal'; // 'normal' or 'big'
 let direction = 'right';
 let nextDirection = 'right';
 let score = 0;
@@ -145,6 +151,10 @@ function shareLeaderboard() {
 
 // --- Game Functions ---
 function initGame() {
+    console.log('🐍 ===== NEW GAME STARTING =====');
+    console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
+    console.log(`🌟 Big Food Chance: ${BIG_FOOD_CHANCE * 100}%`);
+    
     const startX = Math.floor(GRID_SIZE / 2);
     const startY = Math.floor(GRID_SIZE / 2);
     snake = [
@@ -171,17 +181,28 @@ function initGame() {
     gameInterval = setInterval(gameLoop, currentSpeed);
     lastMoveTime = performance.now();
     
-    console.log(`🐢 Snake speed: ${currentSpeed}ms`);
+    console.log(`✅ Game initialized! Speed: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
 }
 
 function spawnFood() {
     let newFood;
+    let attempts = 0;
     do {
         newFood = {
             x: Math.floor(Math.random() * GRID_SIZE),
             y: Math.floor(Math.random() * GRID_SIZE)
         };
-    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+        attempts++;
+    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) && attempts < 100);
+    
+    // Determine food type
+    if (Math.random() < BIG_FOOD_CHANCE) {
+        foodType = 'big';
+        console.log('🌟 BIG FOOD spawned at position:', newFood);
+    } else {
+        foodType = 'normal';
+    }
+    
     food = newFood;
 }
 
@@ -241,24 +262,53 @@ function gameLoop(timestamp) {
     if (!ateFood) {
         snake.pop();
     } else {
-        score++;
-        foodsEaten++;
-        scoreDisplay.textContent = score;
-        spawnFood();
+        // --- FOOD EATEN LOGGING ---
+        console.log(`🍽️ Food eaten! Type: ${foodType.toUpperCase()}`);
+        console.log(`📊 Before: score=${score}, foodsEaten=${foodsEaten}, speed=${currentSpeed}ms`);
         
-        // --- PROGRESSIVE SPEED INCREASE ---
-        if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
-            const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
+        if (foodType === 'big') {
+            // Big food: more points and bigger speed increase
+            const bonusPoints = BIG_FOOD_SCORE_BONUS;
+            score += bonusPoints;
+            foodsEaten += 2; // Counts as 2 foods eaten
+            console.log(`🌟 BIG FOOD! +${bonusPoints} points! Counts as 2 foods.`);
+            
+            // Big speed increase - applies immediately
+            const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT_BIG);
             if (newSpeed !== currentSpeed) {
                 currentSpeed = newSpeed;
                 clearInterval(gameInterval);
                 gameInterval = setInterval(gameLoop, currentSpeed);
-                
-                const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
-                showSpeedNotification(speedLevel);
-                console.log(`⚡ Speed increased to: ${currentSpeed}ms`);
+                console.log(`⚡ BIG SPEED BOOST! New speed: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
+                showSpeedNotification('big');
+            }
+        } else {
+            // Normal food
+            score++;
+            foodsEaten++;
+            console.log(`🍎 Normal food. Score: ${score}, Total foods eaten: ${foodsEaten}`);
+            
+            // Normal speed increase - every SPEED_LEVEL_INTERVAL foods
+            if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
+                const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT_NORMAL);
+                if (newSpeed !== currentSpeed) {
+                    currentSpeed = newSpeed;
+                    clearInterval(gameInterval);
+                    gameInterval = setInterval(gameLoop, currentSpeed);
+                    const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
+                    console.log(`⚡ Speed increased to: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec) - Level ${speedLevel}`);
+                    showSpeedNotification('normal');
+                } else {
+                    console.log(`⚠️ Speed at minimum: ${currentSpeed}ms`);
+                }
             }
         }
+        
+        console.log(`📊 After: score=${score}, foodsEaten=${foodsEaten}, speed=${currentSpeed}ms`);
+        console.log('---');
+        
+        scoreDisplay.textContent = score;
+        spawnFood();
     }
     
     lastMoveTime = timestamp;
@@ -267,7 +317,7 @@ function gameLoop(timestamp) {
 }
 
 // --- SPEED NOTIFICATION ---
-function showSpeedNotification(level) {
+function showSpeedNotification(type) {
     const existing = document.querySelector('.speed-notification');
     if (existing) existing.remove();
     
@@ -277,35 +327,42 @@ function showSpeedNotification(level) {
     let emoji = '🐍';
     let color = '#10b981';
     let label = 'Level Up!';
+    let speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
     
-    if (level <= 2) {
-        emoji = '🐢';
-        color = '#34d399';
-        label = 'Getting Started';
-    } else if (level <= 4) {
-        emoji = '🐍';
-        color = '#10b981';
-        label = 'Speeding Up';
-    } else if (level <= 6) {
-        emoji = '⚡';
+    if (type === 'big') {
+        emoji = '🌟';
         color = '#fbbf24';
-        label = 'Fast!';
-    } else if (level <= 8) {
-        emoji = '🔥';
-        color = '#f472b6';
-        label = 'On Fire!';
+        label = 'BIG SPEED BOOST!';
     } else {
-        emoji = '💨';
-        color = '#ef4444';
-        label = 'Light Speed!';
+        if (speedLevel <= 2) {
+            emoji = '🐢';
+            color = '#34d399';
+            label = 'Getting Started';
+        } else if (speedLevel <= 4) {
+            emoji = '🐍';
+            color = '#10b981';
+            label = 'Speeding Up';
+        } else if (speedLevel <= 6) {
+            emoji = '⚡';
+            color = '#fbbf24';
+            label = 'Fast!';
+        } else if (speedLevel <= 8) {
+            emoji = '🔥';
+            color = '#f472b6';
+            label = 'On Fire!';
+        } else {
+            emoji = '💨';
+            color = '#ef4444';
+            label = 'Light Speed!';
+        }
     }
     
     notification.innerHTML = `
         <div class="notification-content">
             <div class="notification-emoji">${emoji}</div>
             <div class="notification-label">${label}</div>
-            <div class="notification-level">Level ${level}</div>
-            <div class="notification-speed">⚡ ${Math.round(1000 / currentSpeed)} moves/sec</div>
+            <div class="notification-level">Speed: ${Math.round(1000 / currentSpeed)} moves/sec</div>
+            <div class="notification-speed">⚡ ${currentSpeed}ms</div>
         </div>
     `;
     
@@ -326,10 +383,17 @@ function gameOver() {
     inputBuffer = [];
     isProcessingInput = false;
     
+    console.log('💀 ===== GAME OVER =====');
+    console.log(`📊 Final Score: ${score}`);
+    console.log(`📊 Final Speed: ${currentSpeed}ms (${Math.round(1000 / currentSpeed)} moves/sec)`);
+    console.log(`📊 Total Foods Eaten: ${foodsEaten}`);
+    console.log(`📊 Snake Length: ${snake.length}`);
+    
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('snakeHighScore', highScore);
         highScoreDisplay.textContent = highScore;
+        console.log(`🏆 NEW HIGH SCORE: ${highScore}!`);
     }
     
     finalScore.textContent = score;
@@ -422,22 +486,52 @@ function drawCanvas() {
     });
     ctx.shadowBlur = 0;
     
+    // Draw food
     const fx = food.x * CELL_SIZE;
     const fy = food.y * CELL_SIZE;
-    ctx.fillStyle = '#f472b6';
-    ctx.shadowColor = 'rgba(244,114,182,0.6)';
-    ctx.shadowBlur = 16;
-    ctx.beginPath();
-    ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 3, 0, Math.PI * 2);
-    ctx.fill();
     
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = 'rgba(244,114,182,0.2)';
-    ctx.strokeStyle = 'rgba(244,114,182,0.3)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 + 2, 0, Math.PI * 2);
-    ctx.stroke();
+    if (foodType === 'big') {
+        // Big food - golden with glow
+        ctx.shadowColor = 'rgba(251,191,36,0.8)';
+        ctx.shadowBlur = 24;
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner glow
+        ctx.shadowBlur = 40;
+        ctx.shadowColor = 'rgba(251,191,36,0.3)';
+        ctx.strokeStyle = 'rgba(251,191,36,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Star effect
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', fx + CELL_SIZE/2, fy + CELL_SIZE/2);
+    } else {
+        // Normal food - pink
+        ctx.fillStyle = '#f472b6';
+        ctx.shadowColor = 'rgba(244,114,182,0.6)';
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 - 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = 'rgba(244,114,182,0.2)';
+        ctx.strokeStyle = 'rgba(244,114,182,0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(fx + CELL_SIZE/2, fy + CELL_SIZE/2, CELL_SIZE/2 + 2, 0, Math.PI * 2);
+        ctx.stroke();
+    }
     ctx.shadowBlur = 0;
 }
 
@@ -641,5 +735,32 @@ drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
 console.log('🐢 BASE_SPEED:', BASE_SPEED);
+console.log('🌟 Big Food Chance:', (BIG_FOOD_CHANCE * 100) + '%');
 console.log('High Score:', highScore);
 console.log('Leaderboard:', getLeaderboard());
+console.log('📱 To see speed changes, play and watch the console!');
+
+// --- DEBUG HELPER ---
+window.debugGame = {
+    getState: function() {
+        return {
+            snakeLength: snake.length,
+            score: score,
+            foodsEaten: foodsEaten,
+            currentSpeed: currentSpeed,
+            movesPerSecond: Math.round(1000 / currentSpeed),
+            gameRunning: gameRunning,
+            foodType: foodType
+        };
+    },
+    setSpeed: function(newSpeed) {
+        if (newSpeed < MIN_SPEED) newSpeed = MIN_SPEED;
+        currentSpeed = newSpeed;
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, currentSpeed);
+        console.log(`🔧 Manual speed set to: ${currentSpeed}ms`);
+    }
+};
+
+console.log('💡 Type debugGame.getState() to see current game state');
+console.log('💡 Type debugGame.setSpeed(200) to change speed manually');
