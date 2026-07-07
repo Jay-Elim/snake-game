@@ -11,15 +11,20 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS - EXTREMELY SLOW =====
-const BASE_SPEED = 350; // 1 SECOND per move - VERY SLOW
+// ===== SPEED SETTINGS =====
+const BASE_SPEED = 350;
 const MIN_SPEED = 80;
-const SPEED_LEVEL_INTERVAL = 5; // Speed up every 3 foods
-const SPEED_INCREMENT = 50; // Increase speed by 50ms each time
+const SPEED_LEVEL_INTERVAL = 5;
+const SPEED_INCREMENT = 50;
+
+// ===== BIG FOOD SETTINGS =====
+const BIG_FOOD_CHANCE = 0.20; // 20% chance
+const BIG_FOOD_SCORE_BONUS = 5; // Big food gives 5 points
 
 // State
 let snake = [];
 let food = {};
+let bigFood = null; // Big food object {x, y} or null
 let direction = 'right';
 let nextDirection = 'right';
 let score = 0;
@@ -28,6 +33,7 @@ let gameRunning = false;
 let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
 let gameInterval = null;
+let level = 0;
 
 // Speed display
 let speedDisplay = null;
@@ -129,7 +135,6 @@ function shareLeaderboard() {
 // ===== GAME FUNCTIONS =====
 function initGame() {
     console.log('🐍 ===== NEW GAME =====');
-    console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms (${(1000/BASE_SPEED).toFixed(1)} moves/sec)`);
     
     // Reset game
     const startX = Math.floor(GRID_SIZE / 2);
@@ -143,7 +148,9 @@ function initGame() {
     nextDirection = 'right';
     score = 0;
     foodsEaten = 0;
+    level = 0;
     currentSpeed = BASE_SPEED;
+    bigFood = null;
     scoreDisplay.textContent = '0';
     gameRunning = true;
     gameOverOverlay.classList.add('hidden');
@@ -162,6 +169,7 @@ function initGame() {
     createSpeedDisplay();
     
     spawnFood();
+    trySpawnBigFood();
     
     // Clear any existing interval
     if (gameInterval) {
@@ -171,7 +179,6 @@ function initGame() {
     
     // Start game loop with current speed
     gameInterval = setInterval(moveSnake, currentSpeed);
-    console.log(`✅ Game started! Speed: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
     updateSpeedDisplay();
 }
 
@@ -202,10 +209,9 @@ function createSpeedDisplay() {
 function updateSpeedDisplay() {
     if (speedDisplay) {
         const movesPerSec = (1000 / currentSpeed).toFixed(1);
-        const speedMs = currentSpeed;
         const foods = foodsEaten;
         speedDisplay.innerHTML = `
-            ⚡ Speed: ${speedMs}ms | ${movesPerSec} moves/sec | 🍎 ${foods} foods
+            🍎 ${foods} foods eaten | Level ${level} | ⚡ ${movesPerSec}/sec
         `;
     }
 }
@@ -217,8 +223,31 @@ function spawnFood() {
             x: Math.floor(Math.random() * GRID_SIZE),
             y: Math.floor(Math.random() * GRID_SIZE)
         };
-    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+    } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y) || 
+             (bigFood && bigFood.x === newFood.x && bigFood.y === newFood.y));
     food = newFood;
+    drawCanvas();
+}
+
+function trySpawnBigFood() {
+    // Only spawn big food if there isn't already one and random chance
+    if (!bigFood && Math.random() < BIG_FOOD_CHANCE) {
+        let newBigFood;
+        let attempts = 0;
+        do {
+            newBigFood = {
+                x: Math.floor(Math.random() * GRID_SIZE),
+                y: Math.floor(Math.random() * GRID_SIZE)
+            };
+            attempts++;
+        } while ((snake.some(segment => segment.x === newBigFood.x && segment.y === newBigFood.y) || 
+                 (food.x === newBigFood.x && food.y === newBigFood.y)) && attempts < 100);
+        
+        if (attempts < 100) {
+            bigFood = newBigFood;
+            console.log('🌟 Big Food spawned!');
+        }
+    }
     drawCanvas();
 }
 
@@ -250,90 +279,51 @@ function moveSnake() {
         return;
     }
     
-    // Check food
+    // Check if ate big food first (priority)
+    let ateBigFood = false;
+    if (bigFood && head.x === bigFood.x && head.y === bigFood.y) {
+        ateBigFood = true;
+        bigFood = null;
+    }
+    
+    // Check if ate regular food
     const ateFood = head.x === food.x && head.y === food.y;
     
     // Move snake
     snake.unshift(head);
-    if (!ateFood) {
+    if (!ateFood && !ateBigFood) {
         snake.pop();
     } else {
-        score++;
-        foodsEaten++;
+        if (ateBigFood) {
+            // Big food: more points
+            score += BIG_FOOD_SCORE_BONUS;
+            foodsEaten += 2; // Counts as 2 foods
+            console.log(`🌟 Big Food eaten! +${BIG_FOOD_SCORE_BONUS} points!`);
+        } else {
+            // Normal food
+            score++;
+            foodsEaten++;
+        }
         scoreDisplay.textContent = score;
         spawnFood();
+        trySpawnBigFood();
         
         // Speed up every SPEED_LEVEL_INTERVAL foods
         if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
             const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
             if (newSpeed !== currentSpeed) {
                 currentSpeed = newSpeed;
+                level++;
                 // Reset interval with new speed
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
-                console.log(`⚡ Speed increased: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
-                showSpeedNotification();
+                console.log(`⚡ Level ${level}: Speed ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
                 updateSpeedDisplay();
             }
         }
     }
     
     drawCanvas();
-}
-
-// ===== SPEED NOTIFICATION =====
-function showSpeedNotification() {
-    const existing = document.querySelector('.speed-notification');
-    if (existing) existing.remove();
-    
-    const notification = document.createElement('div');
-    notification.className = 'speed-notification';
-    
-    const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
-    let emoji = '🐍';
-    let color = '#10b981';
-    let label = 'Level Up!';
-    
-    if (speedLevel <= 2) {
-        emoji = '🐢';
-        color = '#34d399';
-        label = 'Getting Started';
-    } else if (speedLevel <= 4) {
-        emoji = '🐍';
-        color = '#10b981';
-        label = 'Speeding Up';
-    } else if (speedLevel <= 6) {
-        emoji = '⚡';
-        color = '#fbbf24';
-        label = 'Fast!';
-    } else if (speedLevel <= 8) {
-        emoji = '🔥';
-        color = '#f472b6';
-        label = 'On Fire!';
-    } else {
-        emoji = '💨';
-        color = '#ef4444';
-        label = 'Light Speed!';
-    }
-    
-    notification.innerHTML = `
-        <div class="notification-content">
-            <div class="notification-emoji">${emoji}</div>
-            <div class="notification-label">${label}</div>
-            <div class="notification-level">Speed: ${(1000 / currentSpeed).toFixed(1)} moves/sec</div>
-            <div class="notification-speed">⚡ ${currentSpeed}ms</div>
-        </div>
-    `;
-    
-    notification.style.setProperty('--notification-color', color);
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.classList.add('fade-out');
-        setTimeout(() => {
-            if (notification.parentNode) notification.remove();
-        }, 400);
-    }, 1200);
 }
 
 function gameOver() {
@@ -343,7 +333,7 @@ function gameOver() {
         gameInterval = null;
     }
     
-    console.log('💀 Game Over! Score:', score, 'Final Speed:', currentSpeed, 'ms');
+    console.log('💀 Game Over! Score:', score, 'Final Speed:', currentSpeed, 'ms', 'Level:', level);
     
     if (score > highScore) {
         highScore = score;
@@ -439,7 +429,34 @@ function drawCanvas() {
     });
     ctx.shadowBlur = 0;
     
-    // Draw food
+    // Draw big food (if exists) - Golden with star
+    if (bigFood) {
+        const bx = bigFood.x * CELL_SIZE;
+        const by = bigFood.y * CELL_SIZE;
+        ctx.shadowColor = 'rgba(251,191,36,0.8)';
+        ctx.shadowBlur = 24;
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(bx + CELL_SIZE/2, by + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 40;
+        ctx.shadowColor = 'rgba(251,191,36,0.3)';
+        ctx.strokeStyle = 'rgba(251,191,36,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(bx + CELL_SIZE/2, by + CELL_SIZE/2, CELL_SIZE/2 - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', bx + CELL_SIZE/2, by + CELL_SIZE/2);
+    }
+    
+    // Draw regular food
     const fx = food.x * CELL_SIZE;
     const fy = food.y * CELL_SIZE;
     ctx.fillStyle = '#f472b6';
@@ -628,9 +645,8 @@ displayLeaderboard();
 drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
-console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms (${(1000/BASE_SPEED).toFixed(1)} moves/sec)`);
-console.log('📱 The snake should move VERY SLOWLY - 1 move per second');
-console.log('💡 A speed indicator will show at the bottom of the screen');
+console.log(`🐢 BASE_SPEED: ${BASE_SPEED}ms`);
+console.log('🌟 Big Food: 20% chance, +5 points!');
 
 // Debug helper
 window.debugGame = {
@@ -641,7 +657,9 @@ window.debugGame = {
             foodsEaten: foodsEaten,
             currentSpeed: currentSpeed,
             movesPerSecond: (1000 / currentSpeed).toFixed(1),
-            gameRunning: gameRunning
+            gameRunning: gameRunning,
+            level: level,
+            hasBigFood: bigFood !== null
         };
     },
     setSpeed: function(newSpeed) {
@@ -651,7 +669,7 @@ window.debugGame = {
             clearInterval(gameInterval);
             gameInterval = setInterval(moveSnake, currentSpeed);
         }
-        console.log(`🔧 Manual speed set to: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
+        console.log(`🔧 Manual speed set to: ${currentSpeed}ms`);
         updateSpeedDisplay();
     }
 };
