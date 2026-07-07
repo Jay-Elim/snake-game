@@ -11,9 +11,11 @@ const startOverlay = document.getElementById('startOverlay');
 const GRID_SIZE = 20;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// ===== SPEED SETTINGS - TEST WITH VERY SLOW SPEED =====
+// ===== SPEED SETTINGS =====
 const BASE_SPEED = 600; // 600ms between moves (very slow)
-const MIN_SPEED = 100;
+const MIN_SPEED = 80;
+const SPEED_LEVEL_INTERVAL = 5; // Speed up every 5 foods
+const SPEED_INCREMENT = 8; // Speed increase per level
 
 // State
 let snake = [];
@@ -23,11 +25,11 @@ let nextDirection = 'right';
 let score = 0;
 let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
 let gameRunning = false;
-let gameInterval = null;
 let currentSpeed = BASE_SPEED;
 let foodsEaten = 0;
+let gameInterval = null;
 
-// Leaderboard functions
+// ===== LEADERBOARD FUNCTIONS =====
 const LEADERBOARD_KEY = 'snake_leaderboard';
 const MAX_LEADERBOARD_ENTRIES = 10;
 
@@ -121,8 +123,9 @@ function shareLeaderboard() {
 // ===== GAME FUNCTIONS =====
 function initGame() {
     console.log('🐍 Game starting with speed:', BASE_SPEED, 'ms');
+    console.log('🐢 This should be VERY slow - about 1 move every 0.6 seconds');
     
-    // Reset snake
+    // Reset game state
     const startX = Math.floor(GRID_SIZE / 2);
     const startY = Math.floor(GRID_SIZE / 2);
     snake = [
@@ -140,7 +143,6 @@ function initGame() {
     gameOverOverlay.classList.add('hidden');
     startOverlay.classList.add('hidden');
     
-    // Remove save prompt if exists
     const savePrompt = document.querySelector('.save-prompt');
     if (savePrompt) savePrompt.remove();
     
@@ -149,11 +151,14 @@ function initGame() {
     // Clear any existing interval
     if (gameInterval) {
         clearInterval(gameInterval);
+        gameInterval = null;
     }
     
-    // Start the game loop with the current speed
+    // === THE FIX: Pure setInterval for game loop ===
+    // No requestAnimationFrame interference!
     gameInterval = setInterval(moveSnake, currentSpeed);
     console.log('✅ Game interval started with speed:', currentSpeed, 'ms');
+    console.log('📊 Moves per second:', (1000 / currentSpeed).toFixed(1));
 }
 
 function spawnFood() {
@@ -168,14 +173,14 @@ function spawnFood() {
     drawCanvas();
 }
 
-// ===== MAIN GAME LOOP - SIMPLIFIED =====
+// ===== MAIN GAME LOOP - PURE INTERVAL =====
 function moveSnake() {
     if (!gameRunning) return;
     
     // Apply direction
     direction = nextDirection;
     
-    // Calculate new head position
+    // Calculate new head
     const head = { ...snake[0] };
     switch(direction) {
         case 'up': head.y--; break;
@@ -184,19 +189,19 @@ function moveSnake() {
         case 'right': head.x++; break;
     }
     
-    // Check wall collision
+    // Wall collision
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
         gameOver();
         return;
     }
     
-    // Check self collision
+    // Self collision
     if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
         gameOver();
         return;
     }
     
-    // Check if food eaten
+    // Check food
     const ateFood = head.x === food.x && head.y === food.y;
     
     // Move snake
@@ -209,15 +214,15 @@ function moveSnake() {
         scoreDisplay.textContent = score;
         spawnFood();
         
-        // Speed up every 5 foods
-        if (foodsEaten % 5 === 0) {
-            const newSpeed = Math.max(MIN_SPEED, currentSpeed - 10);
+        // Speed up every SPEED_LEVEL_INTERVAL foods
+        if (foodsEaten % SPEED_LEVEL_INTERVAL === 0) {
+            const newSpeed = Math.max(MIN_SPEED, currentSpeed - SPEED_INCREMENT);
             if (newSpeed !== currentSpeed) {
                 currentSpeed = newSpeed;
                 // Reset interval with new speed
                 clearInterval(gameInterval);
                 gameInterval = setInterval(moveSnake, currentSpeed);
-                console.log(`⚡ Speed increased to: ${currentSpeed}ms (${Math.round(1000/currentSpeed)} moves/sec)`);
+                console.log(`⚡ Speed increased to: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
                 showSpeedNotification();
             }
         }
@@ -234,7 +239,7 @@ function showSpeedNotification() {
     const notification = document.createElement('div');
     notification.className = 'speed-notification';
     
-    const speedLevel = Math.floor(foodsEaten / 5);
+    const speedLevel = Math.floor(foodsEaten / SPEED_LEVEL_INTERVAL);
     let emoji = '🐍';
     let color = '#10b981';
     let label = 'Level Up!';
@@ -265,7 +270,7 @@ function showSpeedNotification() {
         <div class="notification-content">
             <div class="notification-emoji">${emoji}</div>
             <div class="notification-label">${label}</div>
-            <div class="notification-level">Speed: ${Math.round(1000 / currentSpeed)} moves/sec</div>
+            <div class="notification-level">Speed: ${(1000 / currentSpeed).toFixed(1)} moves/sec</div>
             <div class="notification-speed">⚡ ${currentSpeed}ms</div>
         </div>
     `;
@@ -288,7 +293,7 @@ function gameOver() {
         gameInterval = null;
     }
     
-    console.log('💀 Game Over! Score:', score, 'Speed:', currentSpeed, 'ms');
+    console.log('💀 Game Over! Score:', score, 'Final Speed:', currentSpeed, 'ms');
     
     if (score > highScore) {
         highScore = score;
@@ -407,7 +412,6 @@ function drawCanvas() {
 // ===== CONTROLS =====
 function changeDirection(newDir) {
     if (!gameRunning) return;
-    
     if ((newDir === 'up' && direction === 'down') ||
         (newDir === 'down' && direction === 'up') ||
         (newDir === 'left' && direction === 'right') ||
@@ -426,7 +430,7 @@ function highlightButton(buttonId) {
     }, 150);
 }
 
-// Keyboard Controls
+// Keyboard
 document.addEventListener('keydown', (e) => {
     switch(e.key) {
         case 'ArrowUp': e.preventDefault(); changeDirection('up'); highlightButton('upBtn'); break;
@@ -575,8 +579,8 @@ drawCanvas();
 
 console.log('🐍 Snake Game loaded!');
 console.log('🐢 BASE_SPEED:', BASE_SPEED, 'ms');
-console.log('📱 Speed test: Snake should move every', BASE_SPEED, 'ms');
-console.log('🎮 Try it! The snake should be VERY slow.');
+console.log('📊 Moves per second:', (1000 / BASE_SPEED).toFixed(1));
+console.log('🎯 The snake should move VERY SLOWLY - about 1 move every 0.6 seconds');
 
 // Debug helper
 window.debugGame = {
@@ -586,7 +590,7 @@ window.debugGame = {
             score: score,
             foodsEaten: foodsEaten,
             currentSpeed: currentSpeed,
-            movesPerSecond: Math.round(1000 / currentSpeed),
+            movesPerSecond: (1000 / currentSpeed).toFixed(1),
             gameRunning: gameRunning
         };
     },
@@ -597,6 +601,7 @@ window.debugGame = {
             clearInterval(gameInterval);
             gameInterval = setInterval(moveSnake, currentSpeed);
         }
-        console.log(`🔧 Manual speed set to: ${currentSpeed}ms`);
+        console.log(`🔧 Manual speed set to: ${currentSpeed}ms (${(1000/currentSpeed).toFixed(1)} moves/sec)`);
     }
 };
+console.log('💡 Type debugGame.getState() to check current speed');
